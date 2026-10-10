@@ -626,11 +626,11 @@ export function render(model) {
   };
   drawBoards();
 
-  document.querySelectorAll('.toolbar .tab').forEach((btn) => {
+  document.querySelectorAll('button[data-view]').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === view);
     btn.onclick = () => {
       view = btn.dataset.view;
-      document.querySelectorAll('.toolbar .tab').forEach((x) => x.classList.toggle('active', x === btn));
+      document.querySelectorAll('button[data-view]').forEach((x) => x.classList.toggle('active', x === btn));
       drawBoards();
     };
   });
