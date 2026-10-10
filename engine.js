@@ -442,6 +442,40 @@ function histogram({ title, items, w = 560, h = 330 }) {
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
 }
 
+function baselinesChart({ title, items, exactCost, w = 560, h = 360 }) {
+  const pad = { l: 132, r: 104, t: 26, b: 24 };
+  const iw = w - pad.l - pad.r;
+  const rowH = 30, gap = 12;
+  const total = pad.t + items.length * (rowH + gap) + pad.b;
+  const H = Math.max(h, total);
+  const maxC = Math.max(...items.map((d) => d.cost)) || 1;
+
+  let s = '';
+  let y = pad.t;
+  items.forEach((d) => {
+    const bw = Math.max((d.cost / maxC) * iw, 2);
+    const isExact = d.name.indexOf('Exacto') === 0;
+    const isQaoa = d.name === 'QAOA';
+    const color = isExact ? COL.L4 : (isQaoa ? COL.L1 : COL.muted);
+    const weight = isQaoa || isExact ? '700' : '400';
+    s += `<text x="${pad.l - 12}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="12" font-weight="${weight}" fill="${COL.text}">${esc(d.name)}</text>`;
+    s += `<rect class="fade-late" style="animation-delay:${(0.15).toFixed(2)}s" x="${pad.l}" y="${y}" width="${bw.toFixed(1)}" height="${rowH}" rx="5" fill="${color}" opacity="${d.feasible ? 0.9 : 0.35}"/>`;
+    if (!d.feasible) {
+      s += `<text x="${pad.l + 8}" y="${y + rowH / 2 + 4}" font-size="10" fill="${COL.conflict}">infeasible (${d.violations})</text>`;
+    }
+    s += `<text x="${(pad.l + bw + 8).toFixed(1)}" y="${y + rowH / 2 - 2}" font-size="11" font-weight="600" fill="${COL.text}">${fmt(d.cost)}</text>`;
+    s += `<text x="${(pad.l + bw + 8).toFixed(1)}" y="${y + rowH / 2 + 12}" font-size="9" fill="${COL.muted}">${d.evaluations} eval</text>`;
+    y += rowH + gap;
+  });
+
+  if (exactCost != null) {
+    const xOpt = (exactCost / maxC) * iw;
+    s += `<line x1="${(pad.l + xOpt).toFixed(1)}" y1="${pad.t - 8}" x2="${(pad.l + xOpt).toFixed(1)}" y2="${(y - gap + 4).toFixed(1)}" stroke="${COL.L4}" stroke-width="1.4" stroke-dasharray="4 3" opacity="0.7"/>`;
+  }
+
+  return chartCard(title, `<svg viewBox="0 0 ${w} ${H}" width="100%" role="img">${s}</svg>`);
+}
+
 function combosChart({ title, nMax = 30, w = 560, h = 330 }) {
   const pad = { l: 66, r: 26, t: 30, b: 46 };
   const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
@@ -651,6 +685,12 @@ export function render(model) {
     cards.push(statCard('Factibilidad', `${fmt(model.meta.feasibility * 100, 1)}%`, 'masa de probabilidad factible', COL.L4));
     cards.push(statCard('Óptimo exacto', fmt(model.exact.cost), `gap ${fmt(model.meta.approx_gap * 100, 1)}%`, COL.conflict));
     cards.push(statCard('Energía QAOA', fmt(model.meta.energy), '⟨H_C⟩ mínima', COL.muted));
+    const heur = (model.baselines || []).filter((x) => x.name !== 'QAOA' && x.name.indexOf('Exacto') !== 0 && x.feasible);
+    if (heur.length) {
+      const bc = Math.min(...heur.map((x) => x.cost));
+      const diff = a.total - bc;
+      cards.push(statCard('vs mejor heurístico', diff <= 1e-9 ? 'óptimo o mejor' : `+${fmt(diff)}`, `mejor clásico ${fmt(bc)}`, diff <= 1e-9 ? COL.L1 : COL.conflict));
+    }
   } else {
     cards.push(statCard('Parámetros', `λv=${model.meta.lambda_v} · M=${model.meta.m_penalty}`, 'mock', COL.muted));
   }
@@ -721,6 +761,16 @@ export function render(model) {
   if (isReal && Array.isArray(model.distribution) && model.distribution.length) {
     CHART_SOURCE = 'QAOA';
     charts.push(histogram({ title: 'Distribución QAOA · top bitstrings', items: model.distribution }));
+  }
+
+  CHART_SOURCE = 'clásico';
+  if (Array.isArray(model.baselines) && model.baselines.length) {
+    const sorted = [...model.baselines].sort((x, y) => x.cost - y.cost);
+    charts.push(baselinesChart({
+      title: 'QAOA vs baselines clásicos (mismo presupuesto)',
+      items: sorted,
+      exactCost: model.exact ? model.exact.cost : null,
+    }));
   }
 
   CHART_SOURCE = 'teórico';

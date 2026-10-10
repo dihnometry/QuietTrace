@@ -1122,5 +1122,121 @@
       "violations": 0,
       "energy": -17.905
     }
+  ],
+  "baselines": [
+    {
+      "name": "Todas L1",
+      "x": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cost": 54.106812,
+      "feasible": false,
+      "violations": 6,
+      "evaluations": 1,
+      "time_ms": 0.0
+    },
+    {
+      "name": "Aleatorio",
+      "x": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "cost": 7.049177,
+      "feasible": true,
+      "violations": 0,
+      "evaluations": 150,
+      "time_ms": 2.842
+    },
+    {
+      "name": "Greedy + local",
+      "x": [
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "cost": 7.668312,
+      "feasible": true,
+      "violations": 0,
+      "evaluations": 37,
+      "time_ms": 0.346
+    },
+    {
+      "name": "Recocido (SA)",
+      "x": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "cost": 7.049177,
+      "feasible": true,
+      "violations": 0,
+      "evaluations": 151,
+      "time_ms": 1.455
+    },
+    {
+      "name": "Exacto (2^n)",
+      "x": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "cost": 7.049177,
+      "feasible": true,
+      "violations": 0,
+      "evaluations": 512,
+      "time_ms": 4.529
+    },
+    {
+      "name": "QAOA",
+      "x": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "cost": 7.049177,
+      "feasible": true,
+      "violations": 0,
+      "evaluations": 150,
+      "time_ms": 464.021
+    }
   ]
 }
