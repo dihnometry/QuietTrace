@@ -21,6 +21,7 @@ REPS = 3                # profundidad QAOA (como main.py)
 MAXITER = 150
 SWEEP_REPS = [1, 2, 3]  # barrido de profundidad
 SWEEP_MAXITER = 80
+SNAPSHOT_ITERS = [5, 10, 25]  # iteraciones donde se mira la solución (ver evolución)
 
 
 def _problem():
@@ -64,9 +65,9 @@ def _breakdown(bits, W, vias, lam_v, conflicts, Mpen):
     }
 
 
-def _distribution(qa, W, vias, lam_v, conflicts, Mpen, n):
+def _distribution(probs, W, vias, lam_v, conflicts, Mpen, n):
     items = []
-    for k, p in enumerate(qa["probabilities"]):
+    for k, p in enumerate(probs):
         if p < 1e-4:
             continue
         bits = _bits_from_index(k, n)
@@ -110,8 +111,9 @@ def get_model():
                                        prob["conflicts"], prob["M"])
 
     # --- QAOA principal ---
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
-    dist = _distribution(qa, W, vias, lam_v, conflicts, Mpen, n)
+    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER,
+                       snapshots=SNAPSHOT_ITERS)
+    dist = _distribution(qa["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
     best = _best_feasible(dist)
     feas_mass = round(sum(d["prob"] for d in dist if d["feasible"]), 6)
 
@@ -140,13 +142,33 @@ def get_model():
             d = dist
         else:
             q = qaoa.run_qaoa(prob["J"], prob["h"], reps=p, maxiter=SWEEP_MAXITER)
-            d = _distribution(q, W, vias, lam_v, conflicts, Mpen, n)
+            d = _distribution(q["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
         b = _best_feasible(d)
         p_x.append(p)
         qaoa_cost.append(b["cost"])
         qaoa_feas.append(round(sum(x["prob"] for x in d if x["feasible"]), 4))
 
     it_cost = [round(v, 4) for v in qa["history"]]
+
+    # --- evolución de la solución: snapshots (5, 10, 25) + final ---
+    solutions = []
+    for snap in qa.get("snapshots", []):
+        d = _distribution(snap["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
+        bd = _best_feasible(d)
+        solutions.append({
+            "iter": snap["iter"],
+            "x": bd["x"],
+            "cost": bd["cost"],
+            "prob": bd["prob"],
+            "violations": _breakdown(bd["x"], W, vias, lam_v, conflicts, Mpen)["violations"],
+        })
+    solutions.append({
+        "iter": len(it_cost),
+        "x": best["x"],
+        "cost": best["cost"],
+        "prob": best["prob"],
+        "violations": after["violations"],
+    })
 
     return {
         "source": "qaoa",
@@ -186,4 +208,5 @@ def get_model():
         "distribution": dist[:16],
         "best": best,
         "exact": {"x": exact_bits, "cost": round(float(exact_cost), 6)},
+        "solutions": solutions,
     }

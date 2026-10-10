@@ -23,10 +23,16 @@
     <figure class="board" id="board-after"></figure>
   </div>
   <p class="note">
-    La optimización QUBO/Ising/QAOA la implementa el equipo de física. Esta vista solo
-    compara una asignación inicial («todas L1») con una solución factible de ejemplo, y
-    proyecta los conflictos geométricos detectados a partir de la permutación de terminales.
+    El tablero «después» es la mejor solución factible de QAOA; el «antes» es el baseline
+    (todas en L1). Los conflictos se detectan por la intersección real de las pistas ruteadas.
   </p>
+</section>
+
+<section class="panel">
+  <div class="toolbar">
+    <span class="view-label">Evolución de la solución (QAOA)</span>
+  </div>
+  <div id="evolution"></div>
 </section>
 
 <section class="grid" id="charts" aria-label="gráficas"></section>

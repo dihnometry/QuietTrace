@@ -442,6 +442,50 @@ function histogram({ title, items, w = 560, h = 330 }) {
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
 }
 
+function miniBoard(model, maps, bits, label, sub) {
+  const { nidx, rankIn, rankOut } = maps;
+  const nN = model.nets.length;
+  const W = 380, H = 208;
+  const bx = (x) => 70 + ((x - 16) / (104 - 16)) * (310 - 70);
+  const bz = (z) => 44 + (z / 48) * (154 - 44);
+  const pt = ([x, z]) => [bx(x), bz(z)];
+  const str = (arr) => arr.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+  let s = `<rect x="8" y="8" width="364" height="160" rx="8" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
+  s += `<rect x="18" y="52" width="40" height="72" rx="5" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+  s += `<text x="38" y="91" text-anchor="middle" font-size="9" fill="${COL.text}">ADC</text>`;
+  s += `<rect x="322" y="52" width="40" height="72" rx="5" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+  s += `<text x="342" y="91" text-anchor="middle" font-size="9" fill="${COL.text}">FPGA</text>`;
+
+  model.nets.forEach((n) => {
+    const layer = bits[nidx[n]];
+    const color = layer === 0 ? COL.L1 : COL.L4;
+    const pts = route(zAt(rankIn[n], nN), zAt(rankOut[n], nN)).map(pt);
+    const dash = layer === 1 ? 'stroke-dasharray="4 3"' : '';
+    s += `<polyline points="${str(pts)}" fill="none" stroke="${color}" stroke-width="2.4" opacity="0.95" ${dash}/>`;
+    if (layer === 1) {
+      pts.forEach(([x, y]) => {
+        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${COL.board}" stroke="${COL.L4}" stroke-width="1.6"/>`;
+      });
+    }
+  });
+
+  model.conflicts.forEach(([a, b]) => {
+    if (bits[nidx[a]] !== bits[nidx[b]]) return;
+    const p = polyInter(
+      route(zAt(rankIn[a], nN), zAt(rankOut[a], nN)).map(pt),
+      route(zAt(rankIn[b], nN), zAt(rankOut[b], nN)).map(pt),
+    );
+    if (p) {
+      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="7" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.6"/>`;
+      s += `<text x="${p[0].toFixed(1)}" y="${(p[1] + 3).toFixed(1)}" text-anchor="middle" font-size="9" fill="${COL.conflict}">✕</text>`;
+    }
+  });
+
+  s += `<text x="${W / 2}" y="186" text-anchor="middle" font-size="11" fill="${COL.text}">${esc(label)} · ${esc(sub)}</text>`;
+  return `<figure class="mini"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg></figure>`;
+}
+
 function statCard(label, value, sub = '', accent = '') {
   return `<div class="stat"${accent ? ` style="--accent:${accent}"` : ''}>
     <span class="stat-label">${esc(label)}</span>
@@ -502,6 +546,16 @@ export function render(model) {
   });
 
   const isReal = model.source === 'qaoa';
+
+  const evo = document.getElementById('evolution');
+  if (evo) {
+    evo.innerHTML = (isReal && Array.isArray(model.solutions) && model.solutions.length)
+      ? '<div class="evolution-grid">' + model.solutions.map((sol) =>
+          miniBoard(model, maps, sol.x, `iter ${sol.iter}`,
+            `costo ${fmt(sol.cost)} · ${sol.violations} conflictos`)
+        ).join('') + '</div>'
+      : '';
+  }
   const cards = [
     statCard('Costo antes', fmt(b.total), 'corte + vías + conflictos', COL.coupling),
     statCard('Costo después', fmt(a.total), isReal ? 'mejor solución QAOA factible' : 'solución factible', COL.L4),

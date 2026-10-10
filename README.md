@@ -17,6 +17,9 @@ El **QAOA real** está integrado en el pipeline. Al abrir la página:
    *después*, desglose de costo, convergencia del optimizador, distribución de bitstrings y
    comparación con el **óptimo exacto**.
 
+Además, el panel **Evolución de la solución (QAOA)** muestra un mini-PCB de las iteraciones
+**5, 10, 25 y la final**, para ver cómo cambia la asignación durante la optimización.
+
 Resultado verificado en el modelo de ejemplo: mejor solución = `001010010`, coste **7.049177**
 (igual al óptimo exacto, `gap ≈ 0`). Capas: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 

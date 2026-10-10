@@ -79,10 +79,14 @@ def _statevector(theta, reps, cost, n):
     return psi
 
 
-def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
+def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, snapshots=None):
     """Corre QAOA (costo Ising + mixer X) con NumPy puro y COBYLA.
 
     Devuelve el mismo dict y la misma forma que `quantum/qaoa.py::run_qaoa`.
+
+    `snapshots`: lista opcional de índices de evaluación (1-based, orden del
+    `history`) en los que se guarda la distribución |psi|^2 de ese momento, para
+    observar cómo evoluciona la solución durante la optimización.
     """
     # scipy se importa aquí para no pagar el coste de carga al abrir la página.
     from scipy.optimize import minimize
@@ -93,12 +97,16 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
 
     cost = _cost_vector(J, h)   # precalculado una sola vez
 
+    snapshot_set = set(snapshots or [])
+    snaps = []
     history = []
 
     def energy(theta):
         psi = _statevector(theta, reps, cost, n)
         val = float(np.real(np.sum(np.abs(psi) ** 2 * cost)))
         history.append(val)
+        if len(history) in snapshot_set:
+            snaps.append({"iter": len(history), "probabilities": np.abs(psi) ** 2})
         return val
 
     num_parameters = 2 * reps
@@ -118,4 +126,8 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
         "theta": [float(t) for t in result.x],
         "history": [float(v) for v in history],
         "probabilities": [float(p) for p in probs],
+        "snapshots": [
+            {"iter": s["iter"], "probabilities": [float(p) for p in s["probabilities"]]}
+            for s in snaps
+        ],
     }
