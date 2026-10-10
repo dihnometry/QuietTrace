@@ -2,53 +2,55 @@
   <div class="head-main">
     <h1>QuietTracE</h1>
     <p class="subtitle">
-      Optimización cuántica de asignación de capas en una PCB ADC–FPGA ·
-      <span class="mock-tag">visualización con datos mock</span>
+      Quantum layer assignment for an ADC–FPGA PCB ·
+      <span class="mock-tag">QAOA on Qollab</span>
     </p>
   </div>
 </header>
 
-<p class="status" id="status">Preparando…</p>
+<p class="status" id="status">Preparing…</p>
 
-<section class="stats" id="stats" aria-label="métricas"></section>
+<section class="stats" id="stats" aria-label="summary"></section>
 
 <section class="panel">
   <div class="toolbar">
-    <span class="view-label">Vista</span>
+    <span class="view-label">View</span>
     <button class="tab" data-view="3d" type="button">3D · stackup</button>
-    <button class="tab" data-view="2d" type="button">2D · planta</button>
+    <button class="tab" data-view="2d" type="button">2D · plan</button>
   </div>
   <div class="boards">
     <figure class="board" id="board-before"></figure>
     <figure class="board" id="board-after"></figure>
   </div>
   <p class="note">
-    El tablero «después» es la mejor solución factible de QAOA; el «antes» es el baseline
-    (todas en L1). Los conflictos se detectan por la intersección real de las pistas ruteadas.
+    The <strong>after</strong> board is the best feasible layer assignment found by QAOA; the
+    <strong>before</strong> board is the baseline (all lines on L1). Conflicts are detected from
+    the real intersection of the routed traces.
   </p>
 </section>
 
 <section class="panel">
   <div class="toolbar">
-    <span class="view-label">Evolución de la solución (QAOA)</span>
+    <span class="view-label">Solution evolution (per QAOA iteration)</span>
   </div>
   <div id="evolution"></div>
 </section>
 
 <section class="panel">
   <div class="toolbar">
-    <span class="view-label">Ejecución en QPU (backend seleccionado en Qollab)</span>
+    <span class="view-label">QPU run (backend selected in Qollab)</span>
   </div>
   <div id="qpu"></div>
   <p class="note">
-    Se optimiza localmente y se envía <strong>un solo circuito</strong> QAOA al backend elegido
-    (regla de un job por run en IonQ). En la vista local no hay backend, así que queda vacío.
+    Optimization runs locally; <strong>one</strong> QAOA circuit is sent to the selected
+    backend (Qollab enforces one job per run on IonQ). The local preview has no backend, so
+    this section stays empty.
   </p>
 </section>
 
-<section class="grid" id="charts" aria-label="gráficas"></section>
+<section class="grid" id="charts" aria-label="charts"></section>
 
 <footer class="foot">
   <span>ADC08060 · FPGA · 40 MSPS · stackup L1/L2/L3/L4</span>
-  <span>datos de ejemplo — no medidos ni simulados electromagnéticamente</span>
+  <span>quantum layer assignment · QAOA</span>
 </footer>

@@ -1,94 +1,79 @@
 # QuietTracE
 
-Optimización cuántica de **asignación de capas** (L1/L4) en una PCB **ADC–FPGA**, ejecutada
-en [Qollab](https://qollab.xyz). Proyecto **híbrido JS + núcleo Python**.
+Quantum **layer assignment** (L1/L4) for an **ADC–FPGA** PCB, running on
+[Qollab](https://qollab.xyz). Hybrid **JS + Python** project.
 
-> **Contrato de desarrollo:** antes de tocar código lee [`AGENTS.md`](./AGENTS.md).
+> **Development contract:** read [`AGENTS.md`](./AGENTS.md) before touching the code.
 
-## Qué hace ahora
+## What it does
 
-El **QAOA real** está integrado en el pipeline. Al abrir la página:
+1. **Model** (`quantum/modelo.py`) — builds the 9 nets (`D0`–`D7`, `CLK`), their routes,
+   the geometric **conflicts** and the coupling weights `W`.
+2. **QAOA** (`quantum/fastqaoa.py`) — runs QAOA on the model's Ising `J,h` (same ansatz as
+   `main.py`), optimized with COBYLA.
+3. **Result + charts** — the best feasible assignment is drawn on the PCB (before/after),
+   with a cost breakdown, a possible-configurations histogram and a coupling matrix, plus a
+   per-iteration solution evolution.
 
-1. **Variables y restricciones originales** — el modelo (`quantum/modelo.py`) construye las
-   9 redes (`D0`–`D7`, `CLK`), sus rutas, los **conflictos geométricos** y los pesos `W`.
-2. **QAOA** — `quantum/fastqaoa.py` corre el QAOA (mismo ansatz que `main.py`) sobre el
-   Ising `J,h` del modelo. El optimizador es COBYLA.
-3. **Respuesta + gráficas** — se elige la **mejor muestra factible** y se dibuja: tablero
-   *después*, desglose de costo, convergencia del optimizador, distribución de bitstrings,
-   grafo de **qubits y acoplamientos**, explosión combinatoria **2ⁿ vs nº de líneas**,
-   comparación con el **óptimo exacto** y una **evolución por iteraciones** (mejor-hasta-ese-
-   momento + energía secuencial: 1, 2, 5, 10, 25, 50, 100, 150).
+Verified on the example model: best solution = `001010010`, cost **7.049177** (equal to the
+exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 
-Resultado verificado en el modelo de ejemplo: mejor solución = `001010010`, coste **7.049177**
-(igual al óptimo exacto, `gap ≈ 0`). Capas: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
+## UI (English)
 
-## Ejecutar en QPU
+- **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
+- **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
+- **Solution evolution:** one mini-PCB per iteration (best-so-far).
+- **Charts:** *Cost breakdown*, *QAOA convergence* (energy per iteration), *Possible
+  configurations* (log/linear toggle) and *Coupling matrix*.
+- **QPU run:** see below.
 
-Al correr en Qollab se elige el backend en **Select QPU**. El pipeline optimiza **localmente**
-y luego envía **un solo circuito** QAOA al backend elegido (regla de *un job por run* en IonQ),
-mostrando los conteos medidos y su factibilidad. En la vista local no hay backend, así que esa
-sección queda vacía.
+## Run on a QPU
 
-## QAOA vs clásicos
+In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**, then sends
+**one** QAOA circuit to the chosen backend (Qollab enforces *one job per run* on IonQ) and
+renders the measured counts and their validity. A local preview has no backend, so that section
+stays empty.
 
-Gráfica **costo vs nº de evaluaciones** (mejor-hasta-ahora) sobre la misma función de costo:
-*Todas L1*, *Aleatorio*, *Greedy + búsqueda local*, *Recocido simulado (SA)* y *QAOA*, con el
-**óptimo exacto** como referencia. Muestra qué método converge más rápido.
-
-A esta escala (9 líneas) el óptimo exacto es tratable y varios heurísticos llegan al óptimo;
-QAOA lo alcanza en ~150 evaluaciones. La ventaja de QAOA **escala con el número de líneas**
-(recursos ~polinómicos vs 2ⁿ), como ilustra la gráfica de combinaciones.
-
-## Arquitectura
+## Structure
 
 ```
-index.html            # UI (solo contenido de <body>)
-main.css              # estilos + temas
-main.js               # entrada JS -> quantum/pipeline.py + engine.js
-engine.js             # motor de render SVG (PCB 2D/3D, gráficas, histograma)
+index.html            # UI (body content only)
+main.css              # styles (theme)
+main.js               # JS entry -> quantum/pipeline.py + engine.js
+engine.js             # SVG render engine (PCB 2D/3D, charts)
 
 quantum/
-  modelo.py           # MODELO del equipo (vendorado tal cual, NO se modifica)
-  qaoa.py             # QAOA de referencia: movido de main.py (QAOAAnsatz + Statevector)
-  fastqaoa.py         # QAOA rápido (NumPy, statevector exacto) — el que usa el pipeline
-  pipeline.py         # une modelo + QAOA y devuelve el contrato del motor
-  pcb.py              # modelo MOCK (modo demo / respaldo si faltan deps)
-requirements.txt
+  modelo.py           # team MODEL (vendored as-is, not modified)
+  qaoa.py             # reference QAOA: moved from main.py (QAOAAnsatz + Statevector)
+  fastqaoa.py         # fast exact NumPy QAOA (used by the pipeline)
+  pipeline.py         # model + QAOA -> the engine's data contract
+  pcb.py              # MOCK model (demo / fallback)
+requirements.txt      # Python deps (Qiskit)
 ```
 
-**`main.py` se movió a `quantum/qaoa.py`** (la lógica QAOA queda intacta para auditar).
-El pipeline usa `fastqaoa.py` porque `QAOAAnsatz + Statevector` es ~1000× más lento
-(~1.2 s por evaluación) e inviable en el navegador; `fastqaoa` reproduce el mismo resultado
-con NumPy puro.
+`main.py` was moved to `quantum/qaoa.py` (kept for auditing). The pipeline uses
+`quantum/fastqaoa.py` because `QAOAAnsatz + Statevector` is ~1000× slower and not viable in a
+browser.
 
-## Tema
-
-Tema único **Hybrid**: colores y bordes nítidos de *OtherDev* (negro puro + verde neón) +
-**glow** estilo Frutiger Aero + **liquid glass** (cristal negro con bordes marcados).
-
-## Ver en local
-
-El motor de render es JS puro; la vista local usa `dev/model.json`:
+## Local preview & packaging
 
 ```sh
-PYTHON=/ruta/a/python/con/qiskit ./scripts/export-model.sh   # modelo.json real (QAOA)
-./scripts/preview.sh        # http://localhost:8000/dev/preview.html
+PYTHON=/path/to/python/with/qiskit ./scripts/export-model.sh   # dev/model.json (real QAOA)
+./scripts/preview.sh                                           # http://localhost:8000/dev/preview.html
+./scripts/package.sh                                           # -> /tmp/quiettrace-qollab.zip
 ```
 
-Sin qiskit/scipy, `export-model.sh` cae automáticamente al modelo **mock**.
+`package.sh` includes only the runtime files (`index.html`, `main.css`, `main.js`, `engine.js`,
+`quantum/`, `requirements.txt`, `README.md`, `LICENSE`). Upload that zip in Qollab
+(**Upload your own files**) and press **Run**.
 
-## Empaquetar para Qollab
+## Theme
 
-```sh
-./scripts/package.sh        # -> /tmp/quiettrace-qollab.zip
-```
+Single **Hybrid** theme: crisp borders + green-on-black palette with an Aero-style glow and
+liquid glass.
 
-Incluye solo los archivos de runtime (`index.html`, `main.css`, `main.js`, `engine.js`,
-`quantum/`, `requirements.txt`, `README.md`, `LICENSE`). Luego, en Qollab:
-**Upload your own files** → soltar el zip → **built-in simulator**.
-
-## Documentación
+## Docs
 
 - Runtime: https://qollab.xyz/learn/docs/runtime-environment
-- Proyectos JS/Qiskit: https://qollab.xyz/learn/docs/js-qiskit-projects
-- Subida de archivos: https://qollab.xyz/learn/docs/upload-your-files
+- JS/Qiskit projects: https://qollab.xyz/learn/docs/js-qiskit-projects
+- Uploading files: https://qollab.xyz/learn/docs/upload-your-files

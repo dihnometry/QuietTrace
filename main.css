@@ -297,3 +297,35 @@ body {
 }
 .mini { margin: 0; }
 .mini svg { display: block; }
+
+/* combos chart toggle */
+.combos-toggle { margin-left: 0.5rem; display: inline-flex; gap: 4px; vertical-align: middle; }
+.tg {
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--edge-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.tg:hover { color: var(--fg); border-color: var(--edge); }
+.tg.active { color: #000; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+
+/* summary chips */
+.stat-value .dash { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+.stat-bar {
+  margin-top: 6px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.stat-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #b6ff9e);
+  box-shadow: 0 0 10px rgba(84, 255, 87, 0.5);
+}
