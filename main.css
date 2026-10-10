@@ -419,3 +419,23 @@ body.modal-open { overflow: hidden; }
 }
 .run-btn:hover { box-shadow: 0 0 12px rgba(84, 255, 87, 0.55); }
 .run-btn:active { transform: translateY(1px); }
+
+/* editor de conexiones (modal) */
+.conn-box { width: min(94vw, 980px); height: min(82vh, 760px); }
+.conn-body { flex: 1 1 auto; min-height: 0; display: flex; gap: 1rem; padding: 1rem; overflow: hidden; }
+.conn-col { flex: 0 0 320px; display: flex; flex-direction: column; min-height: 0; }
+.conn-col-title { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.conn-list { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1 1 auto; }
+.conn-item {
+  display: flex; align-items: center; gap: 0.5rem; padding: 6px 8px; margin-bottom: 4px;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--edge); border-radius: 6px; cursor: grab;
+}
+.conn-item.dragging { opacity: 0.5; }
+.conn-handle { color: var(--muted); }
+.conn-name { font-weight: 600; color: var(--fg); }
+.conn-move { margin-left: auto; display: inline-flex; gap: 3px; }
+.tg.mini { font-size: 0.7rem; padding: 1px 6px; }
+.conn-preview { flex: 1 1 auto; min-width: 0; overflow: auto; display: flex; align-items: flex-start; justify-content: center; }
+.conn-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.9rem; border-top: 1px solid var(--edge); }
+.conn-hint { color: var(--muted); font-size: 0.8rem; }
+.conn-spacer { flex: 1 1 auto; }

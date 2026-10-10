@@ -5,7 +5,7 @@
 // circuit is sent and the charts use that backend's counts.
 
 import * as pipeline from 'quantum.pipeline'; // Pyodide in Qollab; shim locally
-import { render, renderBackend, renderSampling } from './engine.js';
+import { render, renderBackend, renderSampling, routingPreview } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
@@ -140,6 +140,116 @@ function setShots(v, immediate) {
 }
 if (shotsRange) shotsRange.oninput = () => setShots(shotsRange.value);
 if (shotsNum) shotsNum.onchange = () => setShots(shotsNum.value, true);
+
+// --- connections editor -----------------------------------------------------
+
+let connNets = [];
+let connOrder = [];
+
+function parseOrderList(value, nets) {
+  if (!value) return null;
+  const parts = value.split(',').map((s) => s.trim()).filter(Boolean);
+  if (parts.length === nets.length && new Set(parts).size === nets.length
+      && parts.every((p) => nets.includes(p))) return parts;
+  return null;
+}
+
+function renderConnPreview() {
+  const el = document.getElementById('conn-preview');
+  if (el) el.innerHTML = routingPreview(connNets, connOrder);
+}
+
+function reorderConn(from, to) {
+  if (from === to || from < 0 || to < 0 || from >= connOrder.length) return;
+  const [x] = connOrder.splice(from, 1);
+  connOrder.splice(to, 0, x);
+  renderConnList();
+  renderConnPreview();
+}
+
+function moveConn(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= connOrder.length) return;
+  reorderConn(i, j);
+}
+
+function renderConnList() {
+  const el = document.getElementById('conn-list');
+  if (!el) return;
+  el.innerHTML = '';
+  connOrder.forEach((nn, i) => {
+    const li = document.createElement('li');
+    li.className = 'conn-item';
+    li.draggable = true;
+    li.innerHTML = `<span class="conn-handle">⠿</span><span class="conn-name">${nn}</span>`
+      + `<span class="conn-move"><button class="tg mini" data-dir="-1" type="button">▲</button>`
+      + `<button class="tg mini" data-dir="1" type="button">▼</button></span>`;
+    li.querySelectorAll('.conn-move button').forEach((b) => {
+      b.onclick = (ev) => { ev.stopPropagation(); moveConn(i, Number(b.dataset.dir)); };
+    });
+    li.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', String(i)); li.classList.add('dragging'); });
+    li.addEventListener('dragend', () => li.classList.remove('dragging'));
+    li.addEventListener('dragover', (e) => e.preventDefault());
+    li.addEventListener('drop', (e) => { e.preventDefault(); reorderConn(Number(e.dataTransfer.getData('text/plain')), i); });
+    el.appendChild(li);
+  });
+  const hint = document.getElementById('conn-hint');
+  if (hint) hint.textContent = `${connOrder.length} nets`;
+}
+
+async function openConnections() {
+  let nets, order;
+  try {
+    if (MODEL && MODEL.nets && MODEL.nets.length) {
+      nets = MODEL.nets.slice();
+      order = parseOrderList(currentOrder(), nets) || MODEL.out_order || nets.slice();
+    } else {
+      setStatus('Loading problem…');
+      const p = (await pipeline.get_problem.callPromising(currentKind, null)).toJs();
+      nets = p.nets.slice();
+      order = parseOrderList(currentOrder(), nets) || p.out_order || nets.slice();
+    }
+  } catch (e) { console.error(e); setStatus(`Error: ${e}`); return; }
+
+  connNets = nets;
+  connOrder = order.filter((nn) => nets.includes(nn));
+  if (connOrder.length !== nets.length) connOrder = nets.slice();
+
+  renderConnList();
+  renderConnPreview();
+  const modal = document.getElementById('conn-modal');
+  if (modal) modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeConnections() {
+  const modal = document.getElementById('conn-modal');
+  if (modal) modal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+function applyConnections() {
+  const el = orderEl();
+  if (el) el.value = connOrder.join(',');
+  closeConnections();
+  markDirty();
+}
+
+{
+  const btn = document.getElementById('connections');
+  if (btn) btn.onclick = openConnections;
+  const c = document.getElementById('conn-close'); if (c) c.onclick = closeConnections;
+  const ca = document.getElementById('conn-cancel'); if (ca) ca.onclick = closeConnections;
+  const ap = document.getElementById('conn-apply'); if (ap) ap.onclick = applyConnections;
+  const rs = document.getElementById('conn-reset');
+  if (rs) rs.onclick = () => { connOrder = connNets.slice(); renderConnList(); renderConnPreview(); };
+  const modal = document.getElementById('conn-modal');
+  if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeConnections(); });
+  document.addEventListener('keydown', (e) => {
+    const m = document.getElementById('conn-modal');
+    if (e.key === 'Escape' && m && !m.hidden) closeConnections();
+  });
+}
 
 // --- bootstrap --------------------------------------------------------------
 

@@ -90,7 +90,15 @@ function route(z1, z2) {
 }
 
 const LZ_OF = (n) => Math.min(98, Math.max(48, 5.5 * n));   // corridor depth, grows with n
-const zAt = (rank, nNets) => 5 + rank * ((LZ_OF(nNets) - 10) / (nNets - 1));
+const zAt = (rank, nNets) => {
+  const twoBank = nNets > 9;
+  const half = Math.floor(nNets / 2);
+  const gap = twoBank ? 10 : 0;                 // visible separation between the two ADC banks
+  const step = (LZ_OF(nNets) - 10 - gap) / (nNets - 1);
+  let z = 5 + rank * step;
+  if (twoBank && rank >= half) z += gap;
+  return z;
+};
 const traceDelay = (i) => (0.15 + i * 0.06).toFixed(2);
 const lateDelay = (i, base = 0.8) => (base + i * 0.05).toFixed(2);
 
@@ -561,6 +569,32 @@ function heatmap({ title, nets, weights, conflicts, w = 560 }) {
   s += `<text x="${ox + cbW + 34}" y="${cbY + 38}" font-size="13" fill="${COL.muted}">conflict</text>`;
 
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
+}
+
+// 2D preview of the ADC->FPGA order (input left, FPGA slots right; straight lines).
+export function routingPreview(nets, order) {
+  const n = nets.length;
+  const W = 360, H = Math.max(240, 26 * n + 40);
+  const xL = 78, xR = W - 78, y0 = 26, y1 = H - 26;
+  const y = (i) => y0 + (n <= 1 ? 0 : (i / (n - 1)) * (y1 - y0));
+  const rank = Object.fromEntries(order.map((nn, i) => [nn, i]));
+
+  let s = `<rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let i = 0; i < n; i++) {
+    const a = [xL, y(i)], b = [xR, y(rank[nets[i]] ?? i)];
+    s += `<line x1="${a[0]}" y1="${a[1].toFixed(1)}" x2="${b[0]}" y2="${b[1].toFixed(1)}" stroke="${COL.L1}" stroke-width="1.6" opacity="0.7"/>`;
+  }
+  for (let i = 0; i < n; i++) {
+    const a = [xL, y(i)];
+    s += `<circle cx="${a[0]}" cy="${a[1].toFixed(1)}" r="3.5" fill="${COL.L1}"/>`;
+    s += `<text x="${xL - 8}" y="${(a[1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${esc(nets[i])}</text>`;
+  }
+  for (let j = 0; j < n; j++) {
+    const b = [xR, y(j)];
+    s += `<circle cx="${b[0]}" cy="${b[1].toFixed(1)}" r="3.5" fill="${COL.L4}"/>`;
+    s += `<text x="${xR + 8}" y="${(b[1] + 4).toFixed(1)}" font-size="11" fill="${COL.muted}">${esc(order[j])}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg>`;
 }
 
 function miniBoard(model, maps, bits, label, sub) {
