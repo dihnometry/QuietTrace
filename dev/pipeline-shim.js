@@ -3,6 +3,14 @@
 
 async function call(path) {
   const res = await fetch(path);
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    const txt = (await res.text()).slice(0, 80).replace(/\s+/g, ' ');
+    throw new Error(
+      `expected JSON from ${path} but got ${res.status} ${ct || '(no content-type)'} ('${txt}'). ` +
+      'Are you on the dev server (`./scripts/dev.sh`), not the static preview?'
+    );
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data && data.error ? data.error : `HTTP ${res.status}`);
   return { toJs: () => data };
