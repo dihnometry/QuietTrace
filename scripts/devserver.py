@@ -70,6 +70,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, pipeline.get_model(kind, init_deg, order))
             if url.path == "/api/problem":
                 return self._send(200, pipeline.get_problem(kind, order))
+            if url.path == "/api/random":
+                return self._send(200, pipeline.random_order(kind))
             if url.path == "/api/resample":
                 shots = int(_opt(q, "shots") or 1024)
                 return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order))

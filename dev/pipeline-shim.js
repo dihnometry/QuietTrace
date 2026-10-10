@@ -28,6 +28,10 @@ export const get_problem = {
     call(`/api/problem?kind=${kind}&order=${q(order)}`),
 };
 
+export const random_order = {
+  callPromising: (kind = '1adc') => call(`/api/random?kind=${kind}`),
+};
+
 export const run_backend = {
   callPromising: (backend, shots = 1024, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null) =>
     call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}`),

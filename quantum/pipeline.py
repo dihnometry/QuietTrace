@@ -6,6 +6,7 @@
 """
 
 import math
+import random
 
 import numpy as np
 
@@ -351,8 +352,27 @@ def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=
     return derived
 
 
+def random_order(kind="1adc", tries=1000):
+    """Random permutation whose conflict graph is 2-colorable (for testing)."""
+    if kind == "2adc":
+        from . import problem2
+        nets = list(problem2.NETS_2ADC)
+    else:
+        nets = list(M.NETS)
+    for _ in range(tries):
+        order = nets[:]
+        random.shuffle(order)
+        routes = M.make_routes(nets, order)
+        conflicts = M.find_conflicts(nets, routes)
+        try:
+            M.conflict_coloring(len(nets), conflicts)
+            return {"order": order}
+        except ValueError:
+            continue
+    return {"order": nets[:]}
+
+
 def get_problem(kind="1adc", order_str=None):
-    """Parte RAPIDA (sin QAOA): problema, BEFORE y datos que no dependen de QAOA."""
     prob = _problem(kind, order_str)
     nets = prob["nets"]
     n = len(nets)
