@@ -100,15 +100,23 @@ problemTabs.forEach((b) => {
     problemTabs.forEach((x) => x.classList.toggle('active', x === b));
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
-    await runPipeline();
-    await resample();
+    try {
+      await runPipeline();
+      await resample();
+    } catch (e) {
+      console.error(e);
+      setStatus(`Error switching problem: ${e}`);
+    }
   };
 });
 
 let orderTimer = null;
 function scheduleOrders(immediate) {
   clearTimeout(orderTimer);
-  const go = async () => { await runPipeline(); await resample(); };
+  const go = async () => {
+    try { await runPipeline(); await resample(); }
+    catch (e) { console.error(e); setStatus(`Error: ${e}`); }
+  };
   if (immediate) go(); else orderTimer = setTimeout(go, 400);
 }
 {
