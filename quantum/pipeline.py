@@ -8,7 +8,6 @@
 
 import math
 import random
-import time
 
 import numpy as np
 
@@ -143,89 +142,83 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
     }
 
 
-def _run_baselines(prob, n, budget=150, seed=1234):
-    """Baselines clásicos sobre la MISMA función de costo (corte + vías + conflictos).
+def _convergence(prob, n, qa_argmax, budget=150, seed=1234):
+    """Trazas 'mejor-hasta-ahora' de cada método, por nº de evaluaciones.
 
-    Se mide el mejor costo factible y el número de evaluaciones de cada método,
-    para comparar con QAOA bajo el mismo presupuesto de evaluaciones.
+    Devuelve series {name, values (costo acumulado por evaluación), evaluations}
+    sobre la MISMA función de costo (corte + vías + conflictos), para ver qué
+    método converge más rápido.
     """
     W, vias, lam_v = prob["W"], prob["vias"], prob["lam_v"]
     conflicts, Mpen = prob["conflicts"], prob["M"]
     rng = random.Random(seed)
-    calls = [0]
 
-    def cost(bits):
-        calls[0] += 1
+    def full(bits):
         return M.full_cost(bits, W, vias, lam_v, conflicts, Mpen)
 
-    def viol(bits):
-        return int(sum(1 for (i, j) in conflicts if bits[i] == bits[j]))
+    def trace(gen):
+        best, out = None, []
+        for bits in gen:
+            c = full(bits)
+            if best is None or c < best:
+                best = c
+            out.append(round(float(best), 4))
+        return out
 
-    results = []
+    series = []
 
-    x0 = [0] * n
-    results.append(("Todas L1", x0, cost(x0), calls[0], 0.0))
-    calls[0] = 0
+    def add(name, gen):
+        vals = trace(gen)
+        series.append({"name": name, "values": vals, "evaluations": len(vals)})
 
-    t = time.perf_counter()
-    best = None
-    for _ in range(budget):
-        x = [rng.randint(0, 1) for _ in range(n)]
-        c = cost(x)
-        if best is None or c < best[0]:
-            best = (c, x)
-    results.append(("Aleatorio", best[1], best[0], calls[0], (time.perf_counter() - t) * 1000))
-    calls[0] = 0
+    add("Todas L1", iter(([0] * n,)))
 
-    t = time.perf_counter()
-    x = [0] * n
-    improved = True
-    while improved:
-        improved = False
-        for i in range(n):
+    def gen_random():
+        for _ in range(budget):
+            yield [rng.randint(0, 1) for _ in range(n)]
+    add("Aleatorio", gen_random())
+
+    def gen_greedy():
+        x = [0] * n
+        yield list(x)
+        improved = True
+        while improved:
+            improved = False
+            for i in range(n):
+                y = x.copy()
+                y[i] ^= 1
+                yield list(y)
+                if full(y) < full(x):
+                    x = y
+                    improved = True
+    add("Greedy + local", gen_greedy())
+
+    def gen_sa():
+        x = [0] * n
+        cx = full(x)
+        yield list(x)
+        T0, T1 = 5.0, 0.05
+        for step in range(max(0, budget - 1)):
+            T = T0 * (T1 / T0) ** (step / max(1, budget - 2))
+            i = rng.randrange(n)
             y = x.copy()
             y[i] ^= 1
-            if cost(y) < cost(x):
-                x = y
-                improved = True
-    results.append(("Greedy + local", x, cost(x), calls[0], (time.perf_counter() - t) * 1000))
-    calls[0] = 0
+            cy = full(y)
+            yield list(y)
+            if cy <= cx or rng.random() < math.exp(-(cy - cx) / max(T, 1e-9)):
+                x, cx = y, cy
+    add("Recocido (SA)", gen_sa())
 
-    t = time.perf_counter()
-    x = [0] * n
-    cx = cost(x)
-    bestx, bestc = x.copy(), cx
-    T0, T1 = 5.0, 0.05
-    for step in range(budget):
-        T = T0 * (T1 / T0) ** (step / max(1, budget - 1))
-        i = rng.randrange(n)
-        y = x.copy()
-        y[i] ^= 1
-        cy = cost(y)
-        if cy <= cx or rng.random() < math.exp(-(cy - cx) / max(T, 1e-9)):
-            x, cx = y, cy
-            if cx < bestc:
-                bestx, bestc = x.copy(), cx
-    results.append(("Recocido (SA)", bestx, bestc, calls[0], (time.perf_counter() - t) * 1000))
-    calls[0] = 0
+    if qa_argmax:
+        best, vals = None, []
+        for k in qa_argmax:
+            c = full(_bits_from_index(int(k), n))
+            if best is None or c < best:
+                best = c
+            vals.append(round(float(best), 4))
+        series.append({"name": "QAOA", "values": vals, "evaluations": len(vals)})
 
-    t = time.perf_counter()
-    ecost, ebits = M.solve_exact(W, vias, lam_v, conflicts, Mpen)
-    results.append(("Exacto (2^n)", [int(b) for b in ebits], float(ecost), 2 ** n, (time.perf_counter() - t) * 1000))
-
-    out = []
-    for name, bits, c, ev, dt in results:
-        bits = [int(b) for b in bits]
-        out.append({
-            "name": name,
-            "x": bits,
-            "cost": round(float(c), 6),
-            "feasible": viol(bits) == 0,
-            "violations": viol(bits),
-            "evaluations": int(ev),
-            "time_ms": round(dt, 3),
-        })
-    return out
+    return series
 
 
 def get_model():
@@ -235,10 +228,8 @@ def get_model():
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
                                        prob["conflicts"], prob["M"])
 
-    # --- QAOA principal (cronometrado) ---
-    t_qa = time.perf_counter()
+    # --- QAOA principal ---
     qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
-    qa_time_ms = (time.perf_counter() - t_qa) * 1000
     dist = _distribution(qa["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
     best = _best_feasible(dist)
     feas_mass = round(sum(d["prob"] for d in dist if d["feasible"]), 6)
@@ -308,17 +299,8 @@ def get_model():
             "energy": round(hist[t - 1], 4),
         })
 
-    # --- baselines clásicos (mismo presupuesto) ---
-    baselines = _run_baselines(prob, n, budget=MAXITER)
-    baselines.append({
-        "name": "QAOA",
-        "x": list(best["x"]),
-        "cost": best["cost"],
-        "feasible": after["violations"] == 0,
-        "violations": after["violations"],
-        "evaluations": len(qa["history"]),
-        "time_ms": round(qa_time_ms, 3),
-    })
+    # --- convergencia: costo vs nº de evaluaciones (QAOA vs clásicos) ---
+    convergence = _convergence(prob, n, qa.get("argmax_history") or [], budget=MAXITER)
 
     return {
         "source": "qaoa",
@@ -359,5 +341,8 @@ def get_model():
         "best": best,
         "exact": {"x": exact_bits, "cost": round(float(exact_cost), 6)},
         "solutions": solutions,
-        "baselines": baselines,
+        "convergence": {
+            "series": convergence,
+            "exact": {"cost": round(float(exact_cost), 6), "evaluations": 2 ** n},
+        },
     }

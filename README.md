@@ -31,13 +31,12 @@ sección queda vacía.
 
 ## QAOA vs clásicos
 
-Se comparan, sobre la **misma función de costo** y con el **mismo presupuesto de evaluaciones**
-(~150): *Todas L1*, *Aleatorio*, *Greedy + búsqueda local*, *Recocido simulado (SA)*,
-*Exacto (2ⁿ)* y *QAOA*. La gráfica muestra el **mejor costo factible** y el **nº de evaluaciones**
-de cada método.
+Gráfica **costo vs nº de evaluaciones** (mejor-hasta-ahora) sobre la misma función de costo:
+*Todas L1*, *Aleatorio*, *Greedy + búsqueda local*, *Recocido simulado (SA)* y *QAOA*, con el
+**óptimo exacto** como referencia. Muestra qué método converge más rápido.
 
-A esta escala (9 líneas) el óptimo exacto es tratable, y QAOA **iguala al mejor heurístico**
-con ~150 evaluaciones (sin enumerar 2ⁿ). La ventaja de QAOA **escala con el número de líneas**
+A esta escala (9 líneas) el óptimo exacto es tratable y varios heurísticos llegan al óptimo;
+QAOA lo alcanza en ~150 evaluaciones. La ventaja de QAOA **escala con el número de líneas**
 (recursos ~polinómicos vs 2ⁿ), como ilustra la gráfica de combinaciones.
 
 ## Arquitectura
