@@ -1,0 +1,5 @@
+# QuietTracE — dependencias Python
+#
+# Qiskit siempre está instalado; se fija aquí explícitamente para que un módulo
+# Python importado solo desde JS (quantum/bell.py) tenga su paquete garantizado.
+qiskit>=2.5.2,<3.0.0
