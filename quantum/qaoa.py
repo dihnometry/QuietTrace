@@ -67,6 +67,9 @@ def build_circuit(J, h, reps, theta):
                 circuit.rx(angle, i)
     circuit.measure_all()
     return circuit
+
+
+def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
     """Corre QAOA (QAOAAnsatz + Statevector + COBYLA) y devuelve resultados.
 
     Réplica de `main.py`:
