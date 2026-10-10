@@ -128,8 +128,11 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
         except Exception:  # noqa: BLE001
             name = None
 
+    counts = {str(k): int(v) for k, v in counts.items()}
+    derived = _fields_from_counts(counts, prob, len(prob["nets"]))
+
     return {
-        "counts": {str(k): int(v) for k, v in counts.items()},
+        "counts": counts,
         "shots": int(shots),
         "num_qubits": int(qa["num_qubits"]),
         "reps": reps,
@@ -140,21 +143,15 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
             "size": int(tcirc.size()),
             "ops": {str(k): int(v) for k, v in tcirc.count_ops().items()},
         },
+        "derived": derived,
     }
 
 
-def model_from_counts(counts):
-    """Recalcula distribucion / solucion / coste desde los conteos del backend.
-
-    Devuelve los campos que dependen de la medicion (con la misma forma que
-    `get_model`) para que las graficas reflejen el backend (ruidoso) si existe.
-    """
-    prob = _problem()
+def _fields_from_counts(counts, prob, n):
+    """Campos que dependen de la medicion, a partir de conteos (dict Python)."""
     nets = prob["nets"]
-    n = len(nets)
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
                                        prob["conflicts"], prob["M"])
-
     total = sum(int(c) for c in counts.values()) or 1
     dist = []
     for key, cnt in counts.items():
@@ -168,7 +165,6 @@ def model_from_counts(counts):
         })
     dist.sort(key=lambda d: (-d["prob"], d["cost"]))
     best = _best_feasible(dist)
-
     return {
         "distribution": dist[:32],
         "distribution_source": "backend",
@@ -178,6 +174,15 @@ def model_from_counts(counts):
         "assignments_after_layers": _layer_members(best["x"], nets),
         "shots": int(total),
     }
+
+
+def model_from_counts(counts):
+    """Campos desde conteos, aceptando un objeto JS (Pyodide) o un dict."""
+    if hasattr(counts, "to_py"):  # Pyodide JsProxy
+        counts = counts.to_py()
+    counts = {str(k): int(v) for k, v in counts.items()}
+    prob = _problem()
+    return _fields_from_counts(counts, prob, len(prob["nets"]))
 
 
 def get_model():

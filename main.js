@@ -31,9 +31,9 @@ try {
     try {
       const q = (await pipeline.run_backend.callPromising(backend, 1024)).toJs();
 
-      // Recompute distribution-derived fields from the backend counts, so the
-      // charts (distribution, cost breakdown, after-board) reflect the noisy backend.
-      const over = (await pipeline.model_from_counts.callPromising(q.counts)).toJs();
+      // Distribution-derived fields come already computed from the backend
+      // counts (Python side), so the charts reflect the noisy backend.
+      const over = q.derived;
       model.distribution = over.distribution;
       model.distribution_source = over.distribution_source;
       model.costs.after = over.costs_after;
