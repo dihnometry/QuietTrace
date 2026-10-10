@@ -359,7 +359,7 @@ main.css                 # única hoja cargada (opcional)
 main.js                  # punto de entrada JS; llama al pipeline Python
 engine.js                # motor de render (SVG); importado con './engine.js'
 quantum/pipeline.py      # une modelo + QAOA; devuelve el contrato del motor
-quantum/modelo.py        # modelo del equipo (vendorado, NO se modifica)
+quantum/modelo.py        # modelo del equipo (recortado: sin helpers sin usar)
 quantum/qaoa.py          # QAOA de referencia (movido de main.py)
 quantum/fastqaoa.py      # QAOA rápido NumPy (lo usa el pipeline)
 quantum/pcb.py           # modelo MOCK (modo demo / respaldo)
@@ -419,7 +419,7 @@ Un cambio no está terminado hasta que:
 2. **Alcance:** QuietTracE optimiza la **asignación de capas** (L1/L4) de las 9 redes de una
    PCB **ADC08060 → FPGA** con **QAOA**, ya integrado:
    `quantum/pipeline.py` (modelo + QAOA) → `engine.js` (visualización). El modelo del equipo
-   vive en `quantum/modelo.py` (vendorado, no se modifica); `main.py` se movió a
+   vive en `quantum/modelo.py` (del equipo; recortado, sin helpers sin usar); `main.py` se movió a
    `quantum/qaoa.py` y el pipeline usa `quantum/fastqaoa.py` (NumPy, exacto y rápido).
    La optimización corre **localmente con statevector** (sin `backend`, sin jobs, sin
    créditos). `quantum/pcb.py` queda como modelo **mock** (demo/respaldo).

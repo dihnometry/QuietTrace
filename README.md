@@ -43,7 +43,7 @@ main.js               # JS entry -> quantum/pipeline.py + engine.js
 engine.js             # SVG render engine (PCB 2D/3D, charts)
 
 quantum/
-  modelo.py           # team MODEL (vendored as-is, not modified)
+  modelo.py           # team MODEL (trimmed: unused helpers removed)
   qaoa.py             # reference QAOA: moved from main.py (QAOAAnsatz + Statevector)
   fastqaoa.py         # fast exact NumPy QAOA (used by the pipeline)
   pipeline.py         # model + QAOA -> the engine's data contract

@@ -122,6 +122,12 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
         "num_qubits": int(qa["num_qubits"]),
         "reps": reps,
         "backend_name": str(name) if name else "",
+        "circuit": {
+            "num_qubits": int(tcirc.num_qubits),
+            "depth": int(tcirc.depth()),
+            "size": int(tcirc.size()),
+            "ops": {str(k): int(v) for k, v in tcirc.count_ops().items()},
+        },
     }
 
 

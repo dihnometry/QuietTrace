@@ -674,8 +674,17 @@ export function renderBackend(q, model) {
   const feasiblePct = total ? (feas / total) * 100 : 0;
   const title = `QPU result · ${q.backend_name || 'backend'} · ${q.shots || total} shots · valid ${fmt(feasiblePct, 1)}%`;
 
+  let circuitLine = '';
+  if (q.circuit) {
+    const ops = Object.entries(q.circuit.ops || {})
+      .sort((x, y) => y[1] - x[1])
+      .map(([k, v]) => `${k}×${v}`)
+      .join(' · ');
+    circuitLine = `<p class="note">Executed circuit: <strong>${q.circuit.num_qubits} qubits</strong> · depth ${q.circuit.depth} · ${q.circuit.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>`;
+  }
+
   const saved = CHART_SOURCE;
   CHART_SOURCE = 'QPU';
-  el.innerHTML = chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+  el.innerHTML = chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`) + circuitLine;
   CHART_SOURCE = saved;
 }

@@ -6,7 +6,7 @@ Implementación ilustrativa, NO un diseño de PCB fabricable:
 - W calculada con un proxy geométrico (reemplazar por C'_m integrado)
 - Penalización por vías y conflictos incluida en TODOS los costos
 
-Requiere: numpy. Qiskit solamente para qaoa_circuit(...), que es opcional.
+Requiere: numpy.
 """
 
 from itertools import product
@@ -133,80 +133,9 @@ def build_model(W, vias, lam_v, conflicts, *, M):
     return Q, constant_Q, J, h, constant_Ising
 
 
-def qubo_energy(bits, Q, constant_Q):
-    x = np.asarray(bits, dtype=float)
-    return float(constant_Q + x @ Q @ x)
-
-
-def ising_energy(bits, J, h, constant_Ising):
-    s = 1 - 2 * np.asarray(bits, dtype=float)
-    return float(constant_Ising + h @ s + 0.5 * s @ J @ s)
-
-
 def solve_exact(W, vias, lam_v, conflicts, M):
     n = len(vias)
     results = [(full_cost(x, W, vias, lam_v, conflicts, M), x)
                for x in product((0, 1), repeat=n)]
     return min(results, key=lambda t: t[0])
 
-
-def qaoa_circuit(J, h, p=1):
-    """Construye circuito QAOA parametrizado en Qiskit, sin optimizador.
-
-    La constante global Ising no entra en la evolución.
-    RZZ(2 gamma J_ij), RZ(2 gamma h_i), RX(2 beta).
-    Incluye penalizaciones de conflictos porque ya están dentro de J.
-    """
-    from qiskit import QuantumCircuit
-    from qiskit.circuit import ParameterVector
-
-    n = len(h)
-    gammas = ParameterVector("gamma", p)
-    betas = ParameterVector("beta", p)
-    circuit = QuantumCircuit(n)
-    circuit.h(range(n))
-    for layer in range(p):
-        for i in range(n):
-            for j in range(i + 1, n):
-                if abs(J[i, j]) > 1e-12:
-                    circuit.rzz(2 * gammas[layer] * J[i, j], i, j)
-        for i in range(n):
-            if abs(h[i]) > 1e-12:
-                circuit.rz(2 * gammas[layer] * h[i], i)
-        for i in range(n):
-            circuit.rx(2 * betas[layer], i)
-    circuit.measure_all()
-    return circuit
-
-
-def demo():
-    routes = make_routes()
-    conflicts = find_conflicts(NETS, routes)
-    W = geometric_weights(NETS, routes, conflicts)
-    v = np.full(len(NETS), 2.0)
-    lam_v = 0.5  # costo por vía: HIPÓTESIS, probar sensibilidad
-    feasible = conflict_coloring(len(NETS), conflicts)
-    upper_bound = soft_cost(feasible, W, v, lam_v)
-    # Cualquier configuración inviable cuesta >= M, dado W,v,lambda >= 0.
-    # Existe una configuración viable de costo <= upper_bound.
-    M = upper_bound + max(1.0, 0.05 * upper_bound)
-    Q, cQ, J, h, cI = build_model(W, v, lam_v, conflicts, M=M)
-    for bits in product((0, 1), repeat=len(NETS)):
-        val = full_cost(bits, W, v, lam_v, conflicts, M)
-        assert np.isclose(val, qubo_energy(bits, Q, cQ), atol=1e-9)
-        assert np.isclose(val, ising_energy(bits, J, h, cI), atol=1e-9)
-    cost, solution = solve_exact(W, v, lam_v, conflicts, M)
-    violations = [(NETS[i], NETS[j]) for i, j in conflicts if solution[i] == solution[j]]
-    assert not violations
-    print("Redes:", NETS)
-    print("Conflictos:", [(NETS[i], NETS[j]) for i, j in sorted(conflicts)])
-    print("M:", round(M, 4), "/ ejemplo factible:", feasible)
-    print("Óptimo de QUBO:", round(cost, 5), "asignación:", solution)
-    print("L1:", [NETS[i] for i, b in enumerate(solution) if b == 0])
-    print("L4:", [NETS[i] for i, b in enumerate(solution) if b == 1])
-    print("Verificación QUBO = Ising = costo completo: OK en 512 estados")
-    return W, conflicts, Q, J, h
-
-
-if __name__ == "__main__":
-    demo()
