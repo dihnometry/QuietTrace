@@ -1,11 +1,38 @@
-:root {
-  --bg: #0b1020;
-  --fg: #e7ecff;
-  --muted: #9aa6c7;
-  --card: #131c36;
-  --panel: #101838;
-  --edge: #24305a;
-  --accent: #6c8cff;
+/* =====================================================================
+   QuietTracE — estilos con dos temas:
+   · aero     : Frutiger Aero / sci-fi AI (cristal, cielo→turquesa, glow)
+   · otherdev : minimalista monoespaciado, negro puro, verde neón
+   ===================================================================== */
+
+:root,
+html[data-theme="aero"] {
+  --bg: #04121f;
+  --fg: #eaf6ff;
+  --muted: #9fc3dd;
+  --card: rgba(255, 255, 255, 0.06);
+  --panel: rgba(255, 255, 255, 0.045);
+  --edge: rgba(255, 255, 255, 0.16);
+  --accent: #38e0ff;
+  --radius: 18px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --shadow: 0 18px 50px rgba(0, 20, 40, 0.45);
+  --blur: blur(12px) saturate(1.25);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+html[data-theme="otherdev"] {
+  --bg: #000000;
+  --fg: #cfcfd6;
+  --muted: #8b8b95;
+  --card: #0a0a0a;
+  --panel: #0a0a0a;
+  --edge: #2e2e2e;
+  --accent: #54ff57;
+  --radius: 6px;
+  --font: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --shadow: none;
+  --blur: none;
+  --glass-inset: none;
 }
 
 * { box-sizing: border-box; }
@@ -13,13 +40,39 @@
 body {
   margin: 0;
   padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 2.5rem;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: radial-gradient(1200px 600px at 50% -10%, #16203c, var(--bg));
+  font-family: var(--font);
+  background: var(--bg);
   color: var(--fg);
 }
 
-.head h1 { margin: 0 0 0.25rem; font-size: clamp(1.5rem, 3vw, 2rem); }
-.subtitle { margin: 0 0 1.5rem; color: var(--muted); font-size: 0.95rem; }
+html[data-theme="aero"] body {
+  background:
+    radial-gradient(1200px 700px at 12% -12%, rgba(56, 224, 255, 0.22), transparent 60%),
+    radial-gradient(1000px 820px at 102% -4%, rgba(185, 140, 255, 0.20), transparent 55%),
+    radial-gradient(900px 700px at 50% 118%, rgba(0, 255, 198, 0.12), transparent 60%),
+    linear-gradient(180deg, #04121f, #03101b 62%, #02090f);
+  background-attachment: fixed;
+}
+
+html[data-theme="otherdev"] body { background: #000; }
+html[data-theme="otherdev"] ::selection { background: #54ff57; color: #000; }
+
+/* cabecera */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.head-main h1 { margin: 0 0 0.25rem; font-size: clamp(1.5rem, 3vw, 2rem); }
+html[data-theme="aero"] .head-main h1 {
+  text-shadow: 0 0 18px rgba(56, 224, 255, 0.55), 0 0 40px rgba(56, 224, 255, 0.25);
+}
+html[data-theme="otherdev"] .head-main h1 { text-shadow: 0 0 8px rgba(84, 255, 87, 0.4); letter-spacing: -0.02em; }
+
+.subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
 .mock-tag {
   display: inline-block;
@@ -27,7 +80,50 @@ body {
   border: 1px solid var(--edge);
   border-radius: 999px;
   font-size: 0.78rem;
-  color: #ffb86c;
+  color: var(--accent);
+}
+
+/* conmutador de tema */
+.theme-switch {
+  display: flex;
+  gap: 0.35rem;
+  padding: 3px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.theme-btn {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.theme-btn:hover { color: var(--fg); }
+.theme-btn.active {
+  color: #04121f;
+  background: var(--accent);
+  font-weight: 700;
+}
+html[data-theme="otherdev"] .theme-btn.active { color: #000; }
+
+/* superficies */
+.panel,
+.stat,
+.chart {
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+}
+html[data-theme="aero"] .panel,
+html[data-theme="aero"] .stat,
+html[data-theme="aero"] .chart {
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow), var(--glass-inset);
 }
 
 /* métricas */
@@ -38,10 +134,7 @@ body {
   margin-bottom: 1.5rem;
 }
 .stat {
-  background: var(--card);
-  border: 1px solid var(--edge);
   border-left: 3px solid var(--accent, var(--edge));
-  border-radius: 10px;
   padding: 0.7rem 0.9rem;
   display: flex;
   flex-direction: column;
@@ -51,28 +144,9 @@ body {
 .stat-value { font-size: 1.35rem; font-weight: 650; }
 .stat-sub { font-size: 0.76rem; color: var(--muted); }
 
-/* panel */
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 14px;
-  padding: 1rem 1.1rem 1.2rem;
-  margin-bottom: 1.5rem;
-}
-.boards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 1rem;
-}
-.board { margin: 0; }
-.board svg { display: block; }
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
-}
+/* panel PCB */
+.panel { background: var(--panel); padding: 1rem 1.1rem 1.2rem; margin-bottom: 1.5rem; }
+.toolbar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
 .view-label {
   color: var(--muted);
   font-size: 0.8rem;
@@ -94,30 +168,29 @@ body {
 .tab.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0b1020;
+  color: #04121f;
   font-weight: 600;
 }
+html[data-theme="otherdev"] .tab.active { color: #000; }
+
+.boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 1rem;
+}
+.board { margin: 0; }
+.board svg { display: block; }
 
 .note { margin: 0.9rem 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
 
-/* charts */
+/* gráficas */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
   gap: 1rem;
 }
-.chart {
-  background: var(--card);
-  border: 1px solid var(--edge);
-  border-radius: 14px;
-  padding: 0.85rem 1rem 1rem;
-}
-.chart h3 {
-  margin: 0 0 0.4rem;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--fg);
-}
+.chart { padding: 0.85rem 1rem 1rem; }
+.chart h3 { margin: 0 0 0.4rem; font-size: 0.92rem; font-weight: 600; color: var(--fg); }
 .chart svg { display: block; }
 
 .foot {
@@ -134,12 +207,8 @@ body {
 
 /* --- animaciones de construcción --- */
 
-@keyframes draw {
-  to { stroke-dashoffset: 0; }
-}
-@keyframes fadeIn {
-  to { opacity: 1; }
-}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadeIn { to { opacity: 1; } }
 @keyframes pop {
   from { opacity: 0; transform: scale(0.5); }
   to { opacity: 1; transform: scale(1); }
@@ -153,20 +222,12 @@ body {
   to { opacity: 1; transform: none; }
 }
 
-/* pistas de la PCB: se dibujan de izquierda a derecha */
 .trace {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: draw 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-
-/* vías, etiquetas, bloques: aparecen al terminar las pistas */
-.fade-late {
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards;
-}
-
-/* marcadores de conflicto */
+.fade-late { opacity: 0; animation: fadeIn 0.5s ease forwards; }
 .pop-late {
   opacity: 0;
   transform-box: fill-box;
@@ -174,24 +235,14 @@ body {
   animation: pop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) forwards;
 }
 
-/* gráficas */
-.chart {
-  opacity: 0;
-  animation: riseIn 0.55s ease forwards;
-}
+.chart { opacity: 0; animation: riseIn 0.55s ease forwards; }
 .chart-line {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
-.chart-area {
-  opacity: 0;
-  animation: fadeIn 0.9s ease forwards;
-}
-.chart-dot {
-  opacity: 0;
-  animation: pop 0.3s ease forwards;
-}
+.chart-area { opacity: 0; animation: fadeIn 0.9s ease forwards; }
+.chart-dot { opacity: 0; animation: pop 0.3s ease forwards; }
 .bar {
   transform-box: fill-box;
   transform-origin: left center;

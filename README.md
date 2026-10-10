@@ -27,6 +27,17 @@ Optimización cuántica de **asignación de capas** en una PCB **ADC–FPGA**, e
   costo vs. `M`, curva mock de QAOA (costo y factibilidad vs. profundidad `p`), convergencia
   mock y matriz de acoplamiento `w_ij`.
 
+## Temas
+
+La interfaz tiene un **conmutador de temas** (arriba a la derecha):
+
+- **Frutiger Aero** — estilo sci‑fi: cristal (glassmorphism), degradado cielo→turquesa,
+  brillos, glow y esquinas redondeadas.
+- **OtherDev** — minimalista monoespaciado, negro puro y verde neón (homenaje a
+  [an.otherdev.xyz](https://an.otherdev.xyz)).
+
+El tema tiñe tanto la UI (CSS) como los SVG (PCB y gráficas).
+
 ## Estructura
 
 ```

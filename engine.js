@@ -1,25 +1,38 @@
 // QuietTracE — motor de visualización (render puro, sin datos).
 //
-// `render(model)` dibuja la PCB (vista 2D en planta y vista 3D del stackup)
-// antes/después de la optimización, más las gráficas de valor, con animación de
-// "construcción" al cargar.
+// `render(model)` dibuja la PCB (2D planta + 3D stackup) antes/después y las
+// gráficas de valor, con animación de construcción. Soporta dos temas.
 //
 // NO implementa la optimización QUBO/Ising/QAOA. No usa `backend` ni envía jobs.
 
-const COL = {
-  L1: '#6c8cff',
-  L4: '#ffb86c',
-  conflict: '#ff5470',
-  board: '#0e1630',
-  block: '#1b2547',
-  blockEdge: '#2b3860',
-  grid: '#232f55',
-  text: '#e7ecff',
-  muted: '#93a0c4',
-  coupling: '#6c8cff',
-  viaCost: '#ffb86c',
-  conflictCost: '#ff5470',
+const THEMES = {
+  // 1) Minimalista monoespaciado, negro puro y verde neón (estilo an.otherdev.xyz)
+  otherdev: {
+    board: '#000000',
+    block: '#141414', blockEdge: '#3a3a3a', blockSide: '#0e0e0e', blockSideDark: '#080808',
+    grid: '#262626',
+    text: '#cfcfd6', muted: '#8b8b95',
+    L1: '#54ff57', L4: '#ff6fae', conflict: '#ff5b5b',
+    coupling: '#54ff57', viaCost: '#ff6fae', conflictCost: '#ff5b5b',
+    chartBg: '#070707', heatLow: '#121212',
+    L1fill: '#0f1c0f', L2fill: '#141414', L3fill: '#141414', L4fill: '#1f1118',
+  },
+  // 2) Frutiger Aero / sci-fi AI: cristal, cielo→turquesa, brillos y glow
+  aero: {
+    board: '#08192b',
+    block: 'rgba(130,205,255,0.20)', blockEdge: 'rgba(180,225,255,0.45)',
+    blockSide: 'rgba(90,170,235,0.16)', blockSideDark: 'rgba(50,120,190,0.16)',
+    grid: 'rgba(120,200,255,0.22)',
+    text: '#eaf6ff', muted: '#9fc3dd',
+    L1: '#38e0ff', L4: '#ffcf5c', conflict: '#ff4d7d',
+    coupling: '#38e0ff', viaCost: '#ffcf5c', conflictCost: '#ff4d7d',
+    chartBg: 'rgba(3,14,24,0.55)', heatLow: '#0a2136',
+    L1fill: '#0e3345', L2fill: '#16283a', L3fill: '#16283a', L4fill: '#3a2f14',
+  },
 };
+
+let currentTheme = 'aero';
+let COL = THEMES[currentTheme];
 
 const fmt = (n, d = 2) => Number(n).toFixed(d);
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -45,7 +58,6 @@ let GID = 0;
 const nid = () => `g${GID++}`;
 let CHART_IDX = 0;
 
-// Curva suave (Catmull-Rom -> Bézier) para líneas de gráfica.
 function smoothPath(pts) {
   if (pts.length < 2) return '';
   let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -100,7 +112,6 @@ function route(z1, z2) {
 }
 
 const zAt = (rank, nNets) => 5 + rank * ((LZ - 10) / (nNets - 1));
-
 const traceDelay = (i) => (0.15 + i * 0.06).toFixed(2);
 const lateDelay = (i, base = 0.8) => (base + i * 0.05).toFixed(2);
 
@@ -142,7 +153,7 @@ function boardSvg(model, maps, assignment, title) {
     const pb = route(zAt(rankIn[b], nN), zAt(rankOut[b], nN)).map(pt);
     const p = polyInter(pa, pb);
     if (p) {
-      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="12" fill="rgba(255,84,112,0.16)" stroke="${COL.conflict}" stroke-width="2"/>`;
+      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="12" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
       s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="15" fill="${COL.conflict}">✕</text>`;
     }
   });
@@ -154,7 +165,7 @@ function boardSvg(model, maps, assignment, title) {
   s += `<text x="156" y="${ly + 4}" font-size="12" fill="${COL.muted}">L4 (oculto)</text>`;
   s += `<circle cx="250" cy="${ly}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`;
   s += `<text x="262" y="${ly + 4}" font-size="12" fill="${COL.muted}">vía</text>`;
-  s += `<circle cx="322" cy="${ly}" r="9" fill="rgba(255,84,112,0.16)" stroke="${COL.conflict}" stroke-width="2"/>`;
+  s += `<circle cx="322" cy="${ly}" r="9" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
   s += `<text x="338" y="${ly + 4}" font-size="12" fill="${COL.muted}">conflicto</text>`;
 
   s += `<text x="${W / 2}" y="410" text-anchor="middle" font-size="14" fill="${COL.text}">${esc(title)}</text>`;
@@ -170,7 +181,7 @@ function board3d(model, maps, assignment, title) {
   const EX = { x: 1.0, y: 0.12 }, EZ = { x: -0.42, y: 0.26 };
   const Lx = 120, T = 4;
   const LAYER_H = { L1: 0, L2: 24, L3: 48, L4: 72 };
-  const FILL = { L1: '#33477f', L2: '#3a4056', L3: '#3a4056', L4: '#7a5a2f' };
+  const FILL = { L1: COL.L1fill, L2: COL.L2fill, L3: COL.L3fill, L4: COL.L4fill };
   const STROKE = { L1: COL.L1, L2: COL.muted, L3: COL.muted, L4: COL.L4 };
   const nN = model.nets.length;
 
@@ -213,8 +224,8 @@ function board3d(model, maps, assignment, title) {
   const box = (x0, x1, z0, z1, h, ht, label, sub) => {
     const B = P(x1, z0, h), C = P(x1, z1, h), D = P(x0, z1, h);
     const Ct = P(x1, z1, h - ht), Dt = P(x0, z1, h - ht), Bt = P(x1, z0, h - ht), At = P(x0, z0, h - ht);
-    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([D, C, Ct, Dt])}" fill="#22305a" stroke="${COL.blockEdge}" stroke-width="1"/>`;
-    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([B, C, Ct, Bt])}" fill="#1a2546" stroke="${COL.blockEdge}" stroke-width="1"/>`;
+    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([D, C, Ct, Dt])}" fill="${COL.blockSide}" stroke="${COL.blockEdge}" stroke-width="1"/>`;
+    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([B, C, Ct, Bt])}" fill="${COL.blockSideDark}" stroke="${COL.blockEdge}" stroke-width="1"/>`;
     s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([At, Bt, Ct, Dt])}" fill="${COL.block}" stroke="${COL.blockEdge}" stroke-width="1.2"/>`;
     const c = P((x0 + x1) / 2, (z0 + z1) / 2, h - ht);
     s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.text}">${label}</text>`;
@@ -239,7 +250,7 @@ function board3d(model, maps, assignment, title) {
     const layer = assignment[nidx[a]] === 0 ? 'L1' : 'L4';
     const p = polyInter(route3(a, LAYER_H[layer]), route3(b, LAYER_H[layer]));
     if (p) {
-      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="rgba(255,84,112,0.18)" stroke="${COL.conflict}" stroke-width="2"/>`;
+      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="${COL.conflict}" fill-opacity="0.18" stroke="${COL.conflict}" stroke-width="2"/>`;
       s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.conflict}">✕</text>`;
     }
   });
@@ -254,7 +265,7 @@ function board3d(model, maps, assignment, title) {
   s += `<line x1="486" y1="${ly - 8}" x2="486" y2="${ly + 8}" stroke="${COL.L4}" stroke-width="2"/>`;
   s += `<circle cx="486" cy="${ly}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
   s += `<text x="498" y="${ly + 4}" font-size="12" fill="${COL.muted}">vía L1↔L4</text>`;
-  s += `<circle cx="622" cy="${ly}" r="9" fill="rgba(255,84,112,0.16)" stroke="${COL.conflict}" stroke-width="2"/>`;
+  s += `<circle cx="622" cy="${ly}" r="9" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
   s += `<text x="638" y="${ly + 4}" font-size="12" fill="${COL.muted}">conflicto</text>`;
 
   s += `<text x="${W / 2}" y="606" text-anchor="middle" font-size="14" fill="${COL.text}">${esc(title)}</text>`;
@@ -280,7 +291,7 @@ function lineChart({ title, xs, series, xLabel = '', w = 560, h = 306 }) {
   const bottom = pad.t + ih;
 
   let defs = '';
-  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="#0f1830"/>`;
+  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
   for (let g = 0; g <= 4; g++) {
     const yv = yMin + (yMax - yMin) * (g / 4);
     const y = Y(yv);
@@ -308,7 +319,7 @@ function lineChart({ title, xs, series, xLabel = '', w = 560, h = 306 }) {
     } else {
       s += `<path class="chart-line" style="animation-delay:${dly}s" pathLength="1" d="${smoothPath(pts)}" fill="none" stroke="${sr.color}" stroke-width="2.6" stroke-linecap="round"/>`;
     }
-    pts.forEach((p) => { s += `<circle class="chart-dot" style="animation-delay:${(Number(dly) + 0.5).toFixed(2)}s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#0f1830" stroke="${sr.color}" stroke-width="2"/>`; });
+    pts.forEach((p) => { s += `<circle class="chart-dot" style="animation-delay:${(Number(dly) + 0.5).toFixed(2)}s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="${COL.chartBg}" stroke="${sr.color}" stroke-width="2"/>`; });
     const last = pts[pts.length - 1];
     s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.5).toFixed(2)}s" x="${(last[0] + 7).toFixed(1)}" y="${(last[1] - 8).toFixed(1)}" font-size="11" font-weight="700" fill="${sr.color}">${fmt(sr.values[sr.values.length - 1], 2)}</text>`;
   });
@@ -334,7 +345,7 @@ function stackedBars({ title, rows, w = 560, h = 300 }) {
   rows.forEach((r, ri) => {
     const y = pad.t + ri * (bh + gap);
     s += `<text x="${pad.l - 14}" y="${y + bh / 2 + 5}" text-anchor="end" font-size="13" fill="${COL.text}">${esc(r.label)}</text>`;
-    s += `<rect x="${pad.l}" y="${y}" width="${iw}" height="${bh}" rx="${bh / 2}" fill="#0f1830"/>`;
+    s += `<rect x="${pad.l}" y="${y}" width="${iw}" height="${bh}" rx="${bh / 2}" fill="${COL.chartBg}"/>`;
     let x = pad.l;
     r.segments.forEach((seg, si) => {
       const segW = (seg.value / maxTotal) * iw;
@@ -345,7 +356,7 @@ function stackedBars({ title, rows, w = 560, h = 300 }) {
       const dly = (0.25 + ri * 0.18 + si * 0.12).toFixed(2);
       s += `<rect class="bar" style="animation-delay:${dly}s" x="${x.toFixed(1)}" y="${y}" width="${wSeg.toFixed(1)}" height="${bh}" rx="7" fill="url(#${gid})"/>`;
       if (segW > 38) {
-        s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.35).toFixed(2)}s" x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#0b1020">${fmt(seg.value, 1)}</text>`;
+        s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.35).toFixed(2)}s" x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#08111c">${fmt(seg.value, 1)}</text>`;
       }
       x += segW;
     });
@@ -369,7 +380,7 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
   const cset = new Set(conflicts.map(([a, b]) => `${nets.indexOf(a)}|${nets.indexOf(b)}`));
 
   const cbarId = nid();
-  const defs = `<linearGradient id="${cbarId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#16203c"/><stop offset="100%" stop-color="${COL.L1}"/></linearGradient>`;
+  const defs = `<linearGradient id="${cbarId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${COL.heatLow}"/><stop offset="100%" stop-color="${COL.L1}"/></linearGradient>`;
 
   let s = '';
   nets.forEach((nn, i) => {
@@ -388,10 +399,11 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
       }
       const isConflict = cset.has(`${i}|${j}`) || cset.has(`${j}|${i}`);
       const t = isConflict ? 0 : weights[i][j] / maxW;
-      const fill = isConflict ? 'rgba(255,84,112,0.22)' : hexLerp('#16203c', COL.L1, t);
-      s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${fill}" ${isConflict ? `stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"` : ''}/>`;
       if (isConflict) {
+        s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"/>`;
         s += `<text class="pop-late" style="animation-delay:${(Number(dly) + 0.2).toFixed(2)}s" x="${(x + d / 2).toFixed(1)}" y="${(y + d / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.conflict}">✕</text>`;
+      } else {
+        s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${hexLerp(COL.heatLow, COL.L1, t)}"/>`;
       }
     }
   }
@@ -401,7 +413,7 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
   s += `<text x="${ox}" y="${cbY + 28}" font-size="10" fill="${COL.muted}">0</text>`;
   s += `<text x="${ox + cbW}" y="${cbY + 28}" text-anchor="end" font-size="10" fill="${COL.muted}">${fmt(maxW, 2)}</text>`;
   s += `<text x="${ox + cbW + 16}" y="${cbY + 10}" font-size="11" fill="${COL.muted}">acoplamiento w_ij (mock)</text>`;
-  s += `<circle cx="${ox + cbW + 20}" cy="${cbY + 34}" r="7" fill="rgba(255,84,112,0.22)" stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"/>`;
+  s += `<circle cx="${ox + cbW + 20}" cy="${cbY + 34}" r="7" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"/>`;
   s += `<text x="${ox + cbW + 34}" y="${cbY + 38}" font-size="11" fill="${COL.muted}">conflicto</text>`;
 
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
@@ -415,7 +427,6 @@ function statCard(label, value, sub = '', accent = '') {
   </div>`;
 }
 
-// Convierte las pistas de L4 (dibujadas sólidas) a discontinuas al terminar.
 function finishTraces(root) {
   if (!root || !root.querySelectorAll) return;
   const apply = (el) => {
@@ -432,6 +443,9 @@ function finishTraces(root) {
 // --- render -----------------------------------------------------------------
 
 export function render(model) {
+  COL = THEMES[currentTheme] || THEMES.aero;
+  if (typeof document !== 'undefined') document.documentElement.dataset.theme = currentTheme;
+
   const nidx = Object.fromEntries(model.nets.map((n, i) => [n, i]));
   const maps = {
     nidx,
@@ -460,11 +474,20 @@ export function render(model) {
 
   document.querySelectorAll('.toolbar .tab').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === view);
-    btn.addEventListener('click', () => {
+    btn.onclick = () => {
       view = btn.dataset.view;
       document.querySelectorAll('.toolbar .tab').forEach((x) => x.classList.toggle('active', x === btn));
       drawBoards();
-    });
+    };
+  });
+
+  document.querySelectorAll('.theme-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.theme === currentTheme);
+    btn.onclick = () => {
+      if (btn.dataset.theme === currentTheme) return;
+      currentTheme = btn.dataset.theme;
+      render(model);
+    };
   });
 
   document.getElementById('stats').innerHTML = [
