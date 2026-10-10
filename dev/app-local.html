@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuietTracE — local (dinámico)</title>
+  <link rel="stylesheet" href="../main.css" />
+  <script type="importmap">
+    { "imports": { "quantum.pipeline": "./pipeline-shim.js" } }
+  </script>
+  <style>
+    #devbadge {
+      position: fixed; right: 12px; bottom: 12px; z-index: 50;
+      font: 12px/1.4 ui-monospace, monospace; color: #54ff57;
+      background: #05070c; border: 1px solid #2e2e2e; border-radius: 8px;
+      padding: 6px 10px; opacity: .9;
+    }
+  </style>
+</head>
+<body>
+  <!-- Dynamic local preview: runs the REAL UI. main.js imports 'quantum.pipeline',
+       which the import map resolves to ./pipeline-shim.js (fetch -> dev server
+       -> quantum/pipeline.py). Needs: PYTHON=<venv> ./scripts/dev.sh -->
+  <script type="module">
+    const V = Date.now();
+    const html = await (await fetch(`../index.html?v=${V}`)).text();
+    document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] ?? html;
+
+    const badge = document.createElement('div');
+    badge.id = 'devbadge';
+    badge.textContent = 'local dinámico · servidor Python (sin Pyodide)';
+    document.body.appendChild(badge);
+
+    try {
+      await import(`../main.js?v=${V}`);
+    } catch (e) {
+      const s = document.getElementById('status');
+      if (s) s.textContent = `No se pudo cargar main.js: ${e}. ¿Arrancaste scripts/dev.sh?`;
+      console.error(e);
+    }
+  </script>
+</body>
+</html>

@@ -399,3 +399,12 @@ body.modal-open { overflow: hidden; }
 /* controles (problema + estado inicial) */
 .controls { padding: 0.75rem 1rem; margin-bottom: 1.25rem; }
 .controls-sep { margin-left: 1.25rem; }
+
+/* control de conexiones (ADC -> FPGA) */
+.order-input {
+  flex: 1 1 320px; max-width: 520px;
+  font: inherit; font-size: 0.9rem; color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--edge); border-radius: 6px; padding: 4px 10px;
+}
+.order-status { color: #ffb86c; }

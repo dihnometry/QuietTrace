@@ -29,28 +29,46 @@ def _init_vector(init_deg, n):
     return [math.radians(float(init_deg))] * n
 
 
-def _problem(kind="1adc"):
-    if kind == "2adc":
-        from . import problem2
-        d = problem2.problem_2adc()
-        d["conflicts"] = tuple(sorted(tuple(sorted(p)) for p in d["conflicts"]))
-        return d
+def _parse_order(nets, order_str, default):
+    if order_str:
+        parts = [p.strip() for p in str(order_str).split(",") if p.strip()]
+        if len(parts) == len(nets) and set(parts) == set(nets):
+            return parts
+    return list(default)
 
-    nets = list(M.NETS)
-    routes = M.make_routes()
+
+def _build_problem(nets, order):
+    routes = M.make_routes(nets, order)
     conflicts = M.find_conflicts(nets, routes)
     W = M.geometric_weights(nets, routes, conflicts)
     vias = np.full(len(nets), VIAS_PER_L4, dtype=float)
     lam_v = LAMBDA_V
-    feasible = M.conflict_coloring(len(nets), conflicts)
+    feasible = M.conflict_coloring(len(nets), conflicts)  # raises if not bipartite
     upper = M.soft_cost(feasible, W, vias, lam_v)
     Mpen = upper + max(1.0, 0.05 * upper)
     Q, cQ, J, h, cI = M.build_model(W, vias, lam_v, conflicts, M=Mpen)
     return {
-        "nets": nets, "in_order": nets, "out_order": list(M.RIGHT_ORDER),
+        "nets": list(nets), "in_order": list(nets), "out_order": list(order),
         "conflicts": conflicts, "W": W,
         "vias": vias, "lam_v": lam_v, "M": Mpen, "J": J, "h": h,
     }
+
+
+def _problem(kind="1adc", order_str=None):
+    if kind == "2adc":
+        from . import problem2
+        nets = list(problem2.NETS_2ADC)
+        default = list(problem2.OUT_ORDER)
+    else:
+        nets = list(M.NETS)
+        default = list(M.RIGHT_ORDER)
+
+    order = _parse_order(nets, order_str, default)
+    try:
+        return _build_problem(nets, order)
+    except ValueError:
+        # order makes the conflict graph non-bipartite -> fall back to default
+        return _build_problem(nets, default)
 
 
 def _bits_from_index(k, n):
@@ -149,14 +167,14 @@ def _layer_members(bits, nets):
     }
 
 
-def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None):
+def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
     Follows Qollab's one-job-per-run rule on IonQ: no iteration against the QPU;
     it optimizes with the fast simulator and sends a single circuit.
     Returns the measured counts.
     """
-    prob = _problem(kind)
+    prob = _problem(kind, order_str)
     init = _init_vector(init_deg, len(prob["nets"]))
     qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter, init=init)
 
@@ -263,23 +281,23 @@ def model_from_counts(counts, kind="1adc"):
 _IDEAL = {}
 
 
-def _ideal_cached(kind="1adc", init_deg=None):
-    key = (kind, init_deg)
+def _ideal_cached(kind="1adc", init_deg=None, order_str=None):
+    key = (kind, init_deg, order_str)
     if key not in _IDEAL:
-        prob = _problem(kind)
+        prob = _problem(kind, order_str)
         init = _init_vector(init_deg, len(prob["nets"]))
         qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
         _IDEAL[key] = {"prob": prob, "probs": np.asarray(qa["probabilities"], dtype=float)}
     return _IDEAL[key]
 
 
-def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None):
+def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None):
     """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
 
     No usa el backend: sirve para ver el efecto del numero de shots (ruido de
     muestreo) sobre las metricas y sobre 'encontrar el optimo'.
     """
-    ideal = _ideal_cached(kind, init_deg)
+    ideal = _ideal_cached(kind, init_deg, order_str)
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
@@ -333,8 +351,8 @@ def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None):
     return derived
 
 
-def get_model(kind="1adc", init_deg=None):
-    prob = _problem(kind)
+def get_model(kind="1adc", init_deg=None, order_str=None):
+    prob = _problem(kind, order_str)
     nets = prob["nets"]
     n = len(nets)
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],

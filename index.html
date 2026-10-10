@@ -15,10 +15,11 @@
     <span class="view-label">Problem</span>
     <button class="tab problem-tab" data-problem="1adc" type="button">1 ADC · 9 qubits</button>
     <button class="tab problem-tab" data-problem="2adc" type="button">2 ADC · 18 qubits</button>
-    <span class="view-label controls-sep">Initial state</span>
-    <input id="init-range" class="shots-range" type="range" min="0" max="180" step="1" value="90" aria-label="Initial state angle" />
-    <input id="init-num" class="shots-num" type="number" min="0" max="180" step="1" value="90" aria-label="Initial state angle" />
-    <span id="init-val" class="view-label">90° (= |+⟩)</span>
+    <span class="view-label controls-sep">Connections (ADC → FPGA order)</span>
+    <input id="order" class="order-input" type="text" spellcheck="false" autocomplete="off"
+           placeholder="e.g. D2,D4,D0,D1,D3,D5,D7,D6,CLK" aria-label="FPGA input order" />
+    <button id="order-reset" class="tg" type="button">reset</button>
+    <span id="order-status" class="view-label order-status"></span>
   </div>
 </section>
 

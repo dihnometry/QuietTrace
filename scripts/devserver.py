@@ -1,0 +1,79 @@
+"""Local dev server for QuietTracE.
+
+Serves the repo statically AND runs the pipeline in Python, so the real UI
+(`main.js` + `engine.js`) works locally without Qollab/Pyodide.
+
+Endpoints:
+  GET /api/model?kind=1adc|2adc&order=<csv>&init=<deg>
+  GET /api/resample?shots=<n>&kind=...&order=...&init=...
+  GET /api/run?shots=<n>&kind=...&order=...   (local BasicSimulator, optional)
+
+Run with a Python that has qiskit/numpy/scipy:
+  PYTHON=/tmp/opencode/qtvenv/bin/python ./scripts/dev.sh
+Then open  http://localhost:8000/dev/app-local.html
+"""
+
+import json
+import os
+import sys
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse, parse_qs
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
+from quantum import pipeline  # noqa: E402
+
+
+def _opt(q, key):
+    v = q.get(key, [""])[0]
+    return v or None
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=ROOT, **kwargs)
+
+    def log_message(self, *args):  # keep the console quiet-ish
+        pass
+
+    def do_GET(self):
+        url = urlparse(self.path)
+        if url.path.startswith("/api/"):
+            return self._api(url)
+        return super().do_GET()
+
+    def _send(self, code, obj):
+        body = json.dumps(obj, default=lambda o: o.item() if hasattr(o, "item") else str(o)).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _api(self, url):
+        q = parse_qs(url.query)
+        kind = _opt(q, "kind") or "1adc"
+        order = _opt(q, "order")
+        init = _opt(q, "init")
+        init_deg = int(init) if init not in (None, "null", "None") else None
+        try:
+            if url.path == "/api/model":
+                return self._send(200, pipeline.get_model(kind, init_deg, order))
+            if url.path == "/api/resample":
+                shots = int(_opt(q, "shots") or 1024)
+                return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order))
+            if url.path == "/api/run":
+                from qiskit.providers.basic_provider import BasicSimulator
+                shots = int(_opt(q, "shots") or 1024)
+                return self._send(200, pipeline.run_backend(
+                    BasicSimulator(), shots, pipeline.REPS, pipeline.MAXITER, kind, init_deg, order))
+            self.send_error(404)
+        except Exception as exc:  # noqa: BLE001
+            self._send(500, {"error": f"{type(exc).__name__}: {exc}"})
+
+
+if __name__ == "__main__":
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    print(f"QuietTracE dev server:  http://localhost:{port}/dev/app-local.html")
+    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

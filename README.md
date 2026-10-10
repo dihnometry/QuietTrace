@@ -23,9 +23,11 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
-- **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**, and set the
-  QAOA **initial state** angle (0–180°, default 90° = |+⟩). Changing either re-runs and redraws.
-  (For 18 qubits the exact reference is skipped: 2^18 enumeration is costly.)
+- **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**.
+- **Connections:** edit the **ADC→FPGA order** (comma-separated net names, e.g.
+  `D2,D4,D0,D1,D3,D5,D7,D6,CLK`). It rebuilds conflicts/weights and redraws. An order whose
+  conflict graph is not 2-colorable falls back to the default (shown in the UI). (For 18 qubits
+  the exact reference is skipped: 2^18 enumeration is costly.)
 - **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
   iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend
@@ -73,9 +75,20 @@ browser.
 
 ## Local preview & packaging
 
-```sh
-PYTHON=/path/to/python/with/qiskit ./scripts/export-model.sh   # dev/model.json (real QAOA)
-./scripts/preview.sh                                           # http://localhost:8000/dev/preview.html
+Two local options:
+
+```bash
+# 1) Static mock (fast, no Python): shows a fixed dev/model.json
+PYTHON=/path/to/python/with/qiskit ./scripts/export-model.sh
+./scripts/preview.sh                      # http://localhost:8000/dev/preview.html
+
+# 2) Dynamic local app (runs the pipeline in Python; controls work)
+PYTHON=/path/to/python/with/qiskit ./scripts/dev.sh   # http://localhost:8000/dev/app-local.html
+```
+
+Option (2) serves the **real** UI (`main.js`) with a shim that calls `quantum/pipeline.py` over
+HTTP — so the problem tabs, the connection order and the shots slider all work locally without
+Qollab/Pyodide. It needs a Python with `qiskit`, `numpy`, `scipy`.
 ./scripts/package.sh                                           # -> /tmp/quiettrace-qollab.zip
 ```
 
