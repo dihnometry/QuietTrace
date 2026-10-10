@@ -352,24 +352,37 @@ def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=
     return derived
 
 
-def random_order(kind="1adc", tries=1000):
-    """Random permutation whose conflict graph is 2-colorable (for testing)."""
+def _nets_and_default(kind):
     if kind == "2adc":
         from . import problem2
-        nets = list(problem2.NETS_2ADC)
-    else:
-        nets = list(M.NETS)
-    for _ in range(tries):
-        order = nets[:]
-        random.shuffle(order)
-        routes = M.make_routes(nets, order)
-        conflicts = M.find_conflicts(nets, routes)
-        try:
-            M.conflict_coloring(len(nets), conflicts)
-            return {"order": order}
-        except ValueError:
-            continue
-    return {"order": nets[:]}
+        return list(problem2.NETS_2ADC), list(problem2.OUT_ORDER)
+    return list(M.NETS), list(M.RIGHT_ORDER)
+
+
+def random_order(kind="1adc"):
+    """Random 2-colorable order.
+
+    Interleaves the two color classes of the default coloring at random while
+    preserving the order inside each class, so no same-class pair ever inverts
+    and the conflict graph stays bipartite.
+    """
+    nets, default = _nets_and_default(kind)
+    routes = M.make_routes(nets, default)
+    conflicts = M.find_conflicts(nets, routes)
+    color = M.conflict_coloring(len(nets), conflicts)
+
+    c0 = [nets[i] for i in range(len(nets)) if color[i] == 0]
+    c1 = [nets[i] for i in range(len(nets)) if color[i] == 1]
+    order = []
+    i = j = 0
+    while i < len(c0) or j < len(c1):
+        if j >= len(c1) or (i < len(c0) and random.random() < 0.5):
+            order.append(c0[i])
+            i += 1
+        else:
+            order.append(c1[j])
+            j += 1
+    return {"order": order}
 
 
 def get_problem(kind="1adc", order_str=None):
