@@ -1,11 +1,28 @@
-<h1>QuietTracE</h1>
-<p class="subtitle">Híbrido JS + Python corriendo en Qollab</p>
-
-<section class="card">
-  <h2>Estado de Bell</h2>
-  <p class="hint">
-    El circuito se construye en <code>quantum/bell.py</code> y se ejecuta contra el
-    <code>backend</code> que elijas en <strong>Select QPU</strong>.
+<header class="head">
+  <h1>QuietTracE</h1>
+  <p class="subtitle">
+    Optimización cuántica de asignación de capas en una PCB ADC–FPGA ·
+    <span class="mock-tag">visualización con datos mock</span>
   </p>
-  <pre id="counts" aria-live="polite">Ejecutando…</pre>
+</header>
+
+<section class="stats" id="stats" aria-label="métricas"></section>
+
+<section class="panel">
+  <div class="boards">
+    <figure class="board" id="board-before"></figure>
+    <figure class="board" id="board-after"></figure>
+  </div>
+  <p class="note">
+    La optimización QUBO/Ising/QAOA la implementa el equipo de física. Esta vista solo
+    compara una asignación inicial («todas L1») con una solución factible de ejemplo, y
+    proyecta los conflictos geométricos detectados a partir de la permutación de terminales.
+  </p>
 </section>
+
+<section class="grid" id="charts" aria-label="gráficas"></section>
+
+<footer class="foot">
+  <span>ADC08060 · FPGA · 40 MSPS · stackup L1/L2/L3/L4</span>
+  <span>datos de ejemplo — no medidos ni simulados electromagnéticamente</span>
+</footer>

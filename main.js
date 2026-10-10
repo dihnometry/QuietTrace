@@ -1,24 +1,17 @@
-// QuietTracE — punto de entrada JS.
+// QuietTracE — punto de entrada JS (Qollab).
 //
-// `backend` es inyectado por Qollab (elegido en el diálogo Select QPU).
-// NO crear ni hardcodear backends, proveedores o API keys.
+// `backend` existe (Qollab lo inyecta) pero este motor solo visualiza: NO envía
+// jobs ni gasta créditos. La optimización QUBO/Ising/QAOA la hace el equipo de
+// física; aquí solo se pintan datos mock.
 //
-// El trabajo cuántico vive en Python (quantum/bell.py) y se llama con
-// `.callPromising` — necesario en IonQ, seguro en todos los backends.
+// El modelo lo genera el módulo Python `quantum/pcb.py` y lo dibuja `engine.js`.
 
-import * as bell from 'quantum.bell'; // -> quantum/bell.py
+import * as pcb from 'quantum.pcb'; // -> quantum/pcb.py
+import { render } from './engine.js';
 
-const SHOTS = 1024;
+// `.callPromising` es la forma correcta de llamar funciones Python propias (y
+// obligatoria en IonQ). `.toJs()` convierte el dict de Python a datos JS.
+const model = (await pcb.get_model.callPromising()).toJs();
 
-const output = document.getElementById('counts');
-
-try {
-  // Un solo job por run: en IonQ solo se admite un backend.run por ejecución.
-  const counts = (await bell.run_bell.callPromising(backend, SHOTS)).toJs();
-
-  output.textContent = JSON.stringify(counts, null, 2);
-  console.log('counts', JSON.stringify(counts));
-} catch (error) {
-  output.textContent = `Error: ${error}`;
-  console.error(error);
-}
+render(model);
+console.log('QuietTracE · modelo mock', JSON.stringify(model.meta));

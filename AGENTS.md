@@ -336,8 +336,12 @@ Flujo recomendado (obligatorio antes de gastar créditos):
 Qollab** y nunca deben alterar el comportamiento de los archivos de runtime:
 
 - `dev/preview.html` — mock del runtime para previsualizar la UI en local.
+- `dev/model.json` — modelo mock exportado (generado por `scripts/export-model.sh`).
 - `scripts/preview.sh` — servidor estático para la vista local.
+- `scripts/export-model.sh` — regenera `dev/model.json` desde `quantum/pcb.py`.
 - `scripts/package.sh` — genera un `.zip` solo con los archivos de runtime para subir.
+
+`engine.js` sí es archivo de runtime (lo importa `main.js` con `./engine.js`).
 
 Al empaquetar/subir, excluir `dev/`, `scripts/` y `AGENTS.md`.
 
@@ -350,8 +354,9 @@ Al empaquetar/subir, excluir `dev/`, `scripts/` y `AGENTS.md`.
 ```
 index.html               # solo contenido de <body>
 main.css                 # única hoja cargada (opcional)
-main.js                  # punto de entrada JS; usa `backend` global
-quantum/bell.py          # núcleo Python/Qiskit importado desde main.js
+main.js                  # punto de entrada JS; llama al núcleo Python
+engine.js                # motor de render (SVG); importado con './engine.js'
+quantum/pcb.py           # núcleo Python (modelo/geometría) importado desde main.js
 requirements.txt         # paquetes Python (Qiskit)
 README.md                # write-up (Project Card)
 ```
@@ -401,8 +406,11 @@ Un cambio no está terminado hasta que:
 1. **Tipo de proyecto: híbrido — UI en JS + núcleo en Python.** `index.html` + `main.js`
    en la raíz (proyecto JS), con la física en módulos Python (`quantum/…`) importados por
    `main.js` vía `callPromising`. Ver estructura en sección 7.
-2. **Alcance:** la idea completa la pasará el owner más adelante. Por ahora se mantiene un
-   **esqueleto mínimo y ejecutable** (estado de Bell) como punto de partida.
+2. **Alcance:** QuietTracE optimiza la **asignación de capas** (L1/L4) de las 9 redes de una
+   PCB **ADC08060 → FPGA**. La **optimización QUBO/Ising/QAOA la implementa el equipo de
+   física**; este repositorio aporta el **motor de visualización** (PCB antes/después +
+   gráficas de valor) con **datos mock** generados en `quantum/pcb.py`. El motor **no usa
+   `backend` ni envía jobs**.
 3. **Entrada de datos:** archivos del proyecto en el repo, siempre **< 2 MB** y con **rutas
    literales** en Python. Un dataset mayor iría por GET desde la web (sección 2.5).
 4. **Nombre de proyecto/usuario en Qollab:** pendiente (para el enlace público).

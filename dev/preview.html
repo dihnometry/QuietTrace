@@ -4,43 +4,31 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>QuietTracE — vista local (mock)</title>
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #stage { width: 100%; height: 100%; border: 0; }
-    #badge {
-      position: fixed; right: 12px; bottom: 12px; z-index: 10;
-      font: 12px/1.4 system-ui, sans-serif; color: #9aa6c7;
-      background: #151d38; border: 1px solid #24305a; border-radius: 8px;
-      padding: 6px 10px;
-    }
-  </style>
+  <link rel="stylesheet" href="../main.css" />
 </head>
 <body>
   <!--
-    Vista local SOLO para desarrollo. Simula el runtime de Qollab:
-      1. carga el index.html real dentro de un iframe,
-      2. inyecta main.css (en Qollab el runtime lo carga solo),
-      3. rellena #counts con conteos de ejemplo (en Qollab los produce `backend`).
+    Vista local SOLO para desarrollo. Simula el runtime de Qollab sin Pyodide:
+      1. carga el index.html real e inyecta su <body>,
+      2. usa el mismo motor `engine.js`,
+      3. alimenta el modelo desde `dev/model.json` (regenerar con
+         `scripts/export-model.sh`, que llama a quantum/pcb.py).
     No forma parte del proyecto que se sube a Qollab.
   -->
-  <iframe id="stage" src="../index.html" title="QuietTracE preview"></iframe>
-  <div id="badge">vista local (mock) — no refleja `backend` real</div>
+  <script type="module">
+    const res = await fetch('../index.html');
+    const html = await res.text();
+    const body = /<body[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] ?? html;
+    document.body.innerHTML = body;
 
-  <script>
-    const frame = document.getElementById('stage');
-    const MOCK_COUNTS = { '00': 508, '11': 516 };
+    const { render } = await import('../engine.js');
+    const model = await (await fetch('./model.json')).json();
+    render(model);
 
-    frame.addEventListener('load', () => {
-      const doc = frame.contentDocument;
-
-      const link = doc.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = '../main.css';
-      doc.head.appendChild(link);
-
-      const out = doc.getElementById('counts');
-      if (out) out.textContent = JSON.stringify(MOCK_COUNTS, null, 2);
-    });
+    const badge = document.createElement('div');
+    badge.id = 'badge';
+    badge.textContent = 'vista local (mock) · sin Pyodide ni backend';
+    document.body.appendChild(badge);
   </script>
 </body>
 </html>

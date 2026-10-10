@@ -11,7 +11,7 @@ python3 - "$OUT" <<'PY'
 import os, sys, zipfile
 
 out = sys.argv[1]
-entries = ["index.html", "main.css", "main.js",
+entries = ["index.html", "main.css", "main.js", "engine.js",
            "requirements.txt", "README.md", "LICENSE", "quantum"]
 
 # excluir tooling local y metadatos
