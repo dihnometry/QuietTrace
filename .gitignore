@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 
+# Virtualenv
+.venv/
+venv/
+
 # OS / editor
 .DS_Store
 Thumbs.db

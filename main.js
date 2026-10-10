@@ -139,8 +139,13 @@ if (shotsNum) shotsNum.onchange = () => setShots(shotsNum.value, true);
 // --- bootstrap --------------------------------------------------------------
 
 (async () => {
-  problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
-  if (shotsVal) shotsVal.textContent = `${readShots()} shots`;
-  await runPipeline();
-  await resample();
+  try {
+    problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
+    if (shotsVal) shotsVal.textContent = `${readShots()} shots`;
+    await runPipeline();
+    await resample();
+  } catch (e) {
+    console.error(e);
+    setStatus(`Error: ${e}. ¿Arrancaste scripts/dev.sh con un Python con qiskit/scipy/numpy?`);
+  }
 })();

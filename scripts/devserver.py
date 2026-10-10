@@ -22,7 +22,15 @@ from urllib.parse import urlparse, parse_qs
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from quantum import pipeline  # noqa: E402
+try:
+    import numpy  # noqa: F401
+    import scipy  # noqa: F401
+    from quantum import pipeline  # noqa: E402
+except Exception as exc:  # noqa: BLE001
+    print("ERROR: missing Python deps for the dev server:", exc)
+    print("Use a Python with numpy+scipy (and qiskit for the local backend):")
+    print("  PYTHON=./.venv/bin/python ./scripts/dev.sh")
+    raise
 
 
 def _opt(q, key):
