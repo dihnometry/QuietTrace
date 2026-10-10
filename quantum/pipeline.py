@@ -442,30 +442,20 @@ def get_model(kind="1adc", init_deg=None, order_str=None):
     # --- solution evolution: best-so-far at checkpoints ---
     argmax = qa.get("argmax_history") or []
     hist = qa["history"]
-    per_eval = []
-    for k in argmax:
-        bits = _bits_from_index(int(k), n)
-        bd = _breakdown(bits, W, vias, lam_v, conflicts, Mpen)
-        per_eval.append({"x": bits, "cost": bd["total"], "violations": bd["violations"]})
 
     checkpoints = sorted({c for c in (1, 2, 5, 10, 25, 50, 100) if c <= len(hist)} | {len(hist)})
-    best_f, best_a, snap = None, None, {}
-    for idx in range(1, len(hist) + 1):
-        if idx - 1 < len(per_eval):
-            cand = per_eval[idx - 1]
-            if best_a is None or cand["cost"] < best_a["cost"]:
-                best_a = cand
-            if cand["violations"] == 0 and (best_f is None or cand["cost"] < best_f["cost"]):
-                best_f = cand
-        if idx in checkpoints:
-            snap[idx] = best_f or best_a
-
-    solutions = [{
-        "iter": t,
-        "x": snap[t]["x"],
-        "cost": snap[t]["cost"],
-        "violations": snap[t]["violations"],
-    } for t in checkpoints]
+    solutions = []
+    for t in checkpoints:
+        if t - 1 >= len(argmax):
+            continue
+        bits = _bits_from_index(int(argmax[t - 1]), n)
+        bd = _breakdown(bits, W, vias, lam_v, conflicts, Mpen)
+        solutions.append({
+            "iter": t,
+            "x": bits,
+            "cost": bd["total"],
+            "violations": bd["violations"],
+        })
 
     return {
         "source": "qaoa",
