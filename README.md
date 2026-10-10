@@ -23,6 +23,9 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
+- **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**, and set the
+  QAOA **initial state** angle (0–180°, default 90° = |+⟩). Changing either re-runs and redraws.
+  (For 18 qubits the exact reference is skipped: 2^18 enumeration is costly.)
 - **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
   iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend

@@ -5,6 +5,8 @@
 - Output: the dict consumed by `engine.js`.
 """
 
+import math
+
 import numpy as np
 
 from . import modelo as M
@@ -20,7 +22,20 @@ REPS = 3            # QAOA depth (as in main.py)
 MAXITER = 150
 
 
-def _problem():
+def _init_vector(init_deg, n):
+    """n angulos (rad) uniformes desde un angulo en grados; None -> |+> (Hadamard)."""
+    if init_deg is None:
+        return None
+    return [math.radians(float(init_deg))] * n
+
+
+def _problem(kind="1adc"):
+    if kind == "2adc":
+        from . import problem2
+        d = problem2.problem_2adc()
+        d["conflicts"] = tuple(sorted(tuple(sorted(p)) for p in d["conflicts"]))
+        return d
+
     nets = list(M.NETS)
     routes = M.make_routes()
     conflicts = M.find_conflicts(nets, routes)
@@ -32,7 +47,8 @@ def _problem():
     Mpen = upper + max(1.0, 0.05 * upper)
     Q, cQ, J, h, cI = M.build_model(W, vias, lam_v, conflicts, M=Mpen)
     return {
-        "nets": nets, "conflicts": conflicts, "W": W,
+        "nets": nets, "in_order": nets, "out_order": list(M.RIGHT_ORDER),
+        "conflicts": conflicts, "W": W,
         "vias": vias, "lam_v": lam_v, "M": Mpen, "J": J, "h": h,
     }
 
@@ -64,23 +80,6 @@ def _breakdown(bits, W, vias, lam_v, conflicts, Mpen):
     }
 
 
-def _distribution(probs, W, vias, lam_v, conflicts, Mpen, n):
-    items = []
-    for k, p in enumerate(probs):
-        if p < 1e-4:
-            continue
-        bits = _bits_from_index(k, n)
-        bd = _breakdown(bits, W, vias, lam_v, conflicts, Mpen)
-        items.append({
-            "x": bits,
-            "prob": float(p),
-            "cost": bd["total"],
-            "feasible": bd["violations"] == 0,
-        })
-    items.sort(key=lambda d: d["prob"], reverse=True)
-    return items
-
-
 def _best_feasible(dist):
     feasible = [d for d in dist if d["feasible"]]
     pool = feasible if feasible else dist
@@ -108,15 +107,39 @@ def _index_from_bits(bits):
     return sum((1 << i) for i, b in enumerate(bits) if b)
 
 
+def _state_bits(n):
+    k = np.arange(1 << n)
+    return ((k[:, None] >> np.arange(n)) & 1).astype(np.int8)
+
+
+def _violation_counts(n, conflicts):
+    X = _state_bits(n)
+    viol = np.zeros(1 << n, dtype=np.int32)
+    for (i, j) in conflicts:
+        viol = viol + (X[:, i] == X[:, j]).astype(np.int32)
+    return viol
+
+
 def _feasible_mask(n, conflicts):
-    mask = np.ones(1 << n, dtype=bool)
-    for k in range(1 << n):
-        bits = _bits_from_index(k, n)
-        for (i, j) in conflicts:
-            if bits[i] == bits[j]:
-                mask[k] = False
-                break
-    return mask
+    return _violation_counts(n, conflicts) == 0
+
+
+def _vector_metrics(prob, n):
+    """(bits matrix, total cost, ising energy, feasible) para los 2^n estados."""
+    X = _state_bits(n)
+    Xf = X.astype(float)
+    S = 1.0 - 2.0 * Xf
+    W = prob["W"]
+    coupling = np.zeros(1 << n, dtype=float)
+    for i in range(n):
+        for j in range(i + 1, n):
+            if W[i][j] != 0.0:
+                coupling = coupling + W[i][j] * (X[:, i] == X[:, j])
+    via = prob["lam_v"] * (Xf @ prob["vias"])
+    conflict = prob["M"] * _violation_counts(n, prob["conflicts"])
+    total = coupling + via + conflict
+    ising = S @ prob["h"] + 0.5 * np.einsum("ki,ij,kj->k", S, prob["J"], S)
+    return X, total, ising, (conflict == 0)
 
 
 def _layer_members(bits, nets):
@@ -126,20 +149,21 @@ def _layer_members(bits, nets):
     }
 
 
-def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
+def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
     Follows Qollab's one-job-per-run rule on IonQ: no iteration against the QPU;
     it optimizes with the fast simulator and sends a single circuit.
     Returns the measured counts.
     """
-    prob = _problem()
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter)
+    prob = _problem(kind)
+    init = _init_vector(init_deg, len(prob["nets"]))
+    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter, init=init)
 
     from qiskit import transpile
     from . import qaoa as ref  # quantum/qaoa.py (reference, uses Qiskit)
 
-    circuit = ref.build_circuit(prob["J"], prob["h"], reps, qa["theta"])
+    circuit = ref.build_circuit(prob["J"], prob["h"], reps, qa["theta"], init=init)
 
     # Transpile for local simulators (their basis). IonQ is left as written:
     # its own pipeline converts to native gates with valid angles, whereas
@@ -165,20 +189,21 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
 
     # comparison metrics: ideal (|psi|^2) vs backend (measured counts)
     n = len(prob["nets"])
-    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
-                                             prob["conflicts"], prob["M"])[1]]
     P = np.asarray(qa["probabilities"], dtype=float)
     Q = np.zeros(1 << n, dtype=float)
     tcounts = sum(counts.values()) or 1
     for key, cnt in counts.items():
         Q[_index_from_bits(_bits_from_key(key, n))] += cnt / tcounts
     mask = _feasible_mask(n, prob["conflicts"])
-    opt_idx = _index_from_bits(optimal)
     derived["tvd"] = round(float(0.5 * np.sum(np.abs(P - Q))), 6)
-    derived["success_ideal"] = round(float(P[opt_idx]), 6)
-    derived["success_backend"] = round(float(Q[opt_idx]), 6)
     derived["valid_ideal"] = round(float(P[mask].sum()), 6)
     derived["valid_backend"] = round(float(Q[mask].sum()), 6)
+    if n <= 16:
+        optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                                 prob["conflicts"], prob["M"])[1]]
+        opt = _index_from_bits(optimal)
+        derived["success_ideal"] = round(float(P[opt]), 6)
+        derived["success_backend"] = round(float(Q[opt]), 6)
 
     return {
         "counts": counts,
@@ -226,50 +251,54 @@ def _fields_from_counts(counts, prob, n):
     }
 
 
-def model_from_counts(counts):
+def model_from_counts(counts, kind="1adc"):
     """Campos desde conteos, aceptando un objeto JS (Pyodide) o un dict."""
     if hasattr(counts, "to_py"):  # Pyodide JsProxy
         counts = counts.to_py()
     counts = {str(k): int(v) for k, v in counts.items()}
-    prob = _problem()
+    prob = _problem(kind)
     return _fields_from_counts(counts, prob, len(prob["nets"]))
 
 
 _IDEAL = {}
 
 
-def _ideal_cached():
-    if "probs" not in _IDEAL:
-        prob = _problem()
-        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
-        _IDEAL["prob"] = prob
-        _IDEAL["probs"] = np.asarray(qa["probabilities"], dtype=float)
-    return _IDEAL
+def _ideal_cached(kind="1adc", init_deg=None):
+    key = (kind, init_deg)
+    if key not in _IDEAL:
+        prob = _problem(kind)
+        init = _init_vector(init_deg, len(prob["nets"]))
+        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
+        _IDEAL[key] = {"prob": prob, "probs": np.asarray(qa["probabilities"], dtype=float)}
+    return _IDEAL[key]
 
 
-def resample_ideal(shots=1024, seed=None):
+def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None):
     """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
 
     No usa el backend: sirve para ver el efecto del numero de shots (ruido de
     muestreo) sobre las metricas y sobre 'encontrar el optimo'.
     """
-    ideal = _ideal_cached()
+    ideal = _ideal_cached(kind, init_deg)
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
     p = probs / probs.sum()
 
-    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
-                                             prob["conflicts"], prob["M"])[1]]
-    opt = _index_from_bits(optimal)
     mask = _feasible_mask(n, prob["conflicts"])
+    opt = None
+    if n <= 16:
+        optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                                 prob["conflicts"], prob["M"])[1]]
+        opt = _index_from_bits(optimal)
 
     shots = max(0, int(shots))
     if shots < 1:
         return {
             "distribution": [], "distribution_source": "sampled", "shots": 0,
-            "found_optimal": False, "tvd": 0.5,
-            "success_ideal": round(float(p[opt]), 6), "success_backend": 0.0,
+            "found_optimal": False if opt is not None else None, "tvd": 0.5,
+            "success_ideal": round(float(p[opt]), 6) if opt is not None else None,
+            "success_backend": 0.0 if opt is not None else None,
             "valid_ideal": round(float(p[mask].sum()), 6), "valid_backend": 0.0,
             "best": None, "costs_after": None,
             "assignments_after": [], "assignments_after_layers": {},
@@ -294,38 +323,61 @@ def resample_ideal(shots=1024, seed=None):
     derived.update({
         "distribution_source": "sampled",
         "shots": shots,
-        "found_optimal": bool(Q[opt] > 0),
+        "found_optimal": (bool(Q[opt] > 0) if opt is not None else None),
         "tvd": round(float(0.5 * np.sum(np.abs(p - Q))), 6),
-        "success_ideal": round(float(p[opt]), 6),
-        "success_backend": round(float(Q[opt]), 6),
+        "success_ideal": (round(float(p[opt]), 6) if opt is not None else None),
+        "success_backend": (round(float(Q[opt]), 6) if opt is not None else None),
         "valid_ideal": round(float(p[mask].sum()), 6),
         "valid_backend": round(float(Q[mask].sum()), 6),
     })
     return derived
 
 
-def get_model():
-    prob = _problem()
+def get_model(kind="1adc", init_deg=None):
+    prob = _problem(kind)
     nets = prob["nets"]
     n = len(nets)
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
                                        prob["conflicts"], prob["M"])
 
     # --- QAOA ---
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
-    dist = _distribution(qa["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
-    best = _best_feasible(dist)
+    init = _init_vector(init_deg, n)
+    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
+    probs = np.asarray(qa["probabilities"], dtype=float)
 
-    # --- exact reference (for the status line) ---
-    exact_cost, exact_bits = M.solve_exact(W, vias, lam_v, conflicts, Mpen)
-    exact_bits = [int(b) for b in exact_bits]
-    gap = (best["cost"] - exact_cost) / max(abs(exact_cost), 1e-9)
-    success_ideal = round(sum(d["prob"] for d in dist if d["x"] == exact_bits), 6)
+    X, total, ising, feasible = _vector_metrics(prob, n)
+    valid_mass = round(float(probs[feasible].sum()), 6)
+    measured_energy = round(float((probs * ising).sum()), 6)
+
+    pool = np.where(feasible)[0]
+    if pool.size == 0:
+        pool = np.arange(1 << n)
+    rel = int(pool[np.lexsort((-probs[pool], total[pool]))[0]])
+    best_x = [int(b) for b in X[rel]]
+    best_cost = round(float(total[rel]), 6)
+
+    top = np.argsort(probs)[::-1][:32]
+    dist = [{
+        "x": [int(b) for b in X[k]],
+        "prob": round(float(probs[k]), 6),
+        "cost": round(float(total[k]), 6),
+        "feasible": bool(feasible[k]),
+    } for k in top]
+
+    # --- exact reference (skip for large n: 2^n enumeration is costly) ---
+    if n <= 16:
+        exact_cost, exact_bits = M.solve_exact(W, vias, lam_v, conflicts, Mpen)
+        exact_bits = [int(b) for b in exact_bits]
+        gap = (best_cost - exact_cost) / max(abs(exact_cost), 1e-9)
+        opt = _index_from_bits(exact_bits)
+        success_ideal = round(float(probs[opt]), 6)
+    else:
+        exact_cost, exact_bits, gap, success_ideal = None, None, None, None
 
     # --- before (all L1) / after (QAOA) ---
     before_bits = [0] * n
     before = _breakdown(before_bits, W, vias, lam_v, conflicts, Mpen)
-    after = _breakdown(best["x"], W, vias, lam_v, conflicts, Mpen)
+    after = _breakdown(best_x, W, vias, lam_v, conflicts, Mpen)
 
     # --- solution evolution: best-so-far at checkpoints ---
     argmax = qa.get("argmax_history") or []
@@ -362,28 +414,29 @@ def get_model():
             "num_qubits": qa["num_qubits"],
             "num_parameters": qa["num_parameters"],
             "reps": REPS,
-            "approx_gap": round(gap, 6),
+            "approx_gap": round(gap, 6) if gap is not None else None,
         },
         "nets": nets,
         "in_order": nets,
-        "out_order": list(M.RIGHT_ORDER),
+        "out_order": list(prob["out_order"]),
         "conflicts": [[nets[i], nets[j]] for (i, j) in sorted(conflicts)],
         "weights": [[float(W[i][j]) for j in range(n)] for i in range(n)],
         "assignments": {
             "before": before_bits,
-            "after": list(best["x"]),
+            "after": list(best_x),
             "before_layers": _layer_members(before_bits, nets),
-            "after_layers": _layer_members(best["x"], nets),
+            "after_layers": _layer_members(best_x, nets),
         },
         "costs": {"before": before, "after": after},
-        "exact": {"cost": round(float(exact_cost), 6)},
+        "exact": {"cost": round(float(exact_cost), 6) if exact_cost is not None else None},
         "convergence": {
             "x": list(range(len(hist))),
             "energy": [round(v, 4) for v in hist],
         },
-        "distribution": dist[:32],
+        "distribution": dist,
         "distribution_source": "ideal",
         "success_ideal": success_ideal,
         "solutions": solutions,
-        **_dist_stats(dist, prob["J"], prob["h"]),
+        "measured_energy": measured_energy,
+        "valid_mass": valid_mass,
     }

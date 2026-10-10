@@ -13,7 +13,10 @@ Semántica replicada de `QAOAAnsatz` (Qiskit 2.5.2) como se usa en `qaoa.py`:
   - Costo clásico por estado: C(k) = sum_{i<j} J_ij s_i s_j + sum_i h_i s_i.
     (La constante Ising global no entra: el operador de `qaoa.py` tampoco la
     incluye.)
-  - Estado inicial |+>^n: psi = ones(2**n) / sqrt(2**n).
+  - Estado inicial |+>^n: psi = ones(2**n) / sqrt(2**n). Si se pasa `init`, el
+    estado inicial es el producto ⊗_i Ry(init[i])|0>, con amplitud por bit
+    cos(init[i]/2) si x_i=0 y sin(init[i]/2) si x_i=1. `init=None` equivale a
+    `init=[π/2]*n` (Hadamard).
   - Por capa l: fase diagonal  psi *= exp(-1j * gamma_l * C),  seguida del
     mixer exp(-i * beta_l * sum_i X_i), que es producto de G(beta_l) por qubit
     con G(b) = [[cos b, -1j sin b], [-1j sin b, cos b]]  (equivale a RX(2b)).
@@ -67,20 +70,46 @@ def _apply_mixer(psi, beta, n):
     return psi.reshape(-1)
 
 
-def _statevector(theta, reps, cost, n):
+def _initial_statevector(n, init):
+    """Estado inicial ⊗_i Ry(init[i])|0>.
+
+    `init=None` -> |+>^n = ones(2**n)/sqrt(2**n) (Hadamard sobre cada qubit).
+    Para que `init=[π/2]*n` sea BIT-IDÉNTICO a `init=None` (Ry(π/2)|0> = |+>),
+    el caso constante π/2 se normaliza a None.
+    """
+    size = 1 << n
+    if init is not None:
+        init = np.asarray(init, dtype=float)
+        if init.shape != (n,):
+            raise ValueError(f"init debe tener longitud n={n}, tiene {init.size}")
+        if np.all(init == np.pi / 2.0):
+            init = None
+    if init is None:
+        return np.full(size, 1.0 / np.sqrt(size), dtype=complex)
+
+    k = np.arange(size, dtype=np.int64)
+    x = (k[:, None] >> np.arange(n)) & 1                    # (size, n) bits 0/1
+    amp = np.where(x == 0, np.cos(init / 2.0), np.sin(init / 2.0))
+    return np.prod(amp, axis=1).astype(complex)
+
+
+def _statevector(theta, reps, cost, n, init=None):
     """Estado final |psi(theta)> tras las `reps` capas (betas primero)."""
     betas = theta[:reps]
     gammas = theta[reps:]
-    size = 1 << n
-    psi = np.full(size, 1.0 / np.sqrt(size), dtype=complex)
+    psi = _initial_statevector(n, init)
     for layer in range(reps):
         psi = psi * np.exp(-1j * gammas[layer] * cost)   # fase de costo
         psi = _apply_mixer(psi, betas[layer], n)         # mixer
     return psi
 
 
-def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
+def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
     """Corre QAOA (costo Ising + mixer X) con NumPy puro y COBYLA.
+
+    `init`: secuencia opcional de n ángulos (radianes) que fija el estado inicial
+    como ⊗_i Ry(init[i])|0>. `init=None` (por defecto) mantiene el estado inicial
+    |+>^n por Hadamard; `init=[π/2]*n` es equivalente.
 
     Devuelve el mismo dict y la misma forma que `quantum/qaoa.py::run_qaoa`.
     """
@@ -97,7 +126,7 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
     argmax_history = []
 
     def energy(theta):
-        psi = _statevector(theta, reps, cost, n)
+        psi = _statevector(theta, reps, cost, n, init=init)
         probs = np.abs(psi) ** 2
         val = float(np.real(np.sum(probs * cost)))
         history.append(val)
@@ -110,7 +139,7 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
                       options={"maxiter": maxiter})
 
     # distribución final sobre los 2**n bitstrings
-    psi = _statevector(result.x, reps, cost, n)
+    psi = _statevector(result.x, reps, cost, n, init=init)
     probs = np.abs(psi) ** 2
 
     return {

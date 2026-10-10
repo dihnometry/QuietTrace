@@ -482,10 +482,12 @@ function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
 }
 
-function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
+function heatmap({ title, nets, weights, conflicts, w = 560 }) {
   const n = nets.length;
-  const cell = 32, gap = 4;
-  const ox = 100, oy = 58;
+  const cell = Math.max(14, Math.min(32, Math.floor((w - 132) / n)));
+  const gap = Math.max(2, Math.round(cell * 0.12));
+  const ox = 100, oy = 54;
+  const h = oy + n * cell + 78;
   const maxW = Math.max(...weights.flat()) || 1;
   const cset = new Set(conflicts.map(([a, b]) => `${nets.indexOf(a)}|${nets.indexOf(b)}`));
 

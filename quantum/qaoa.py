@@ -30,12 +30,36 @@ def cost_operator(J, h):
     return SparsePauliOp.from_sparse_list(pauli_list, num_qubits=n)
 
 
-def build_circuit(J, h, reps, theta):
+def _initial_layer(circuit, n, init):
+    """Estado inicial: Hadamard |+>^n o ⊗_i Ry(init[i])|0> si `init` se pasa.
+
+    `init=[π/2]*n` (Ry(π/2)|0> = |+>) se normaliza a Hadamard para que sea
+    BIT-IDÉNTICO al caso `init=None`.
+    """
+    import numpy as np
+    if init is not None:
+        init = np.asarray(init, dtype=float)
+        if init.shape != (n,):
+            raise ValueError(f"init debe tener longitud n={n}, tiene {init.size}")
+        if np.all(init == np.pi / 2.0):
+            init = None
+    if init is None:
+        circuit.h(range(n))
+    else:
+        for i in range(n):
+            circuit.ry(init[i], i)
+
+
+def build_circuit(J, h, reps, theta, init=None):
     """Circuito QAOA con ANGULOS NUMERICOS (sin parametros libres).
 
     Evita `QAOAAnsatz`/`PauliEvolutionGate` a proposito: su `to_matrix()` falla si
     queda un parametro sin enlazar (p. ej. "Cannot compute matrix with non-numeric
     parameter: gamma[0]") y no hace falta, porque `theta` ya viene optimizado.
+
+    `init`: secuencia opcional de n ángulos (radianes) que fija el estado inicial
+    como ⊗_i Ry(init[i])|0>. `init=None` (por defecto) usa Hadamard |+>^n;
+    `init=[π/2]*n` es equivalente.
 
     Mismas convenciones que el ansatz (orden de `theta`: primero betas, luego gammas):
         e^{-i g H_C} -> RZZ(2 g J_ij) y RZ(2 g h_i);  mezclador -> RX(2 b).
@@ -50,7 +74,7 @@ def build_circuit(J, h, reps, theta):
     gammas = theta[reps:]
 
     circuit = QuantumCircuit(n)
-    circuit.h(range(n))
+    _initial_layer(circuit, n, init)
     for layer in range(reps):
         for i in range(n):
             for j in range(i + 1, n):
@@ -69,7 +93,7 @@ def build_circuit(J, h, reps, theta):
     return circuit
 
 
-def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
+def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
     """Corre QAOA (QAOAAnsatz + Statevector + COBYLA) y devuelve resultados.
 
     Réplica de `main.py`:
@@ -77,6 +101,10 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
         ansatz = QAOAAnsatz(cost_operator=M_cost, reps=reps)
         energy(theta) -> Statevector.from_instruction(...).expectation_value(M_cost)
         minimize(energy, theta0, method="COBYLA", ...)
+
+    `init`: secuencia opcional de n ángulos (radianes) que fija el estado inicial
+    como ⊗_i Ry(init[i])|0>. `init=None` (por defecto) mantiene |+>^n por
+    Hadamard; `init=[π/2]*n` es equivalente.
     """
     from qiskit.circuit.library import QAOAAnsatz
     from qiskit.quantum_info import Statevector
@@ -84,10 +112,18 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
 
     J = np.asarray(J, dtype=float)
     h = np.asarray(h, dtype=float)
+    n = len(h)
 
     M_cost = cost_operator(J, h)
 
-    ansatz = QAOAAnsatz(cost_operator=M_cost, reps=reps)
+    initial_state = None
+    if init is not None:
+        from qiskit import QuantumCircuit
+        initial_state = QuantumCircuit(n)
+        _initial_layer(initial_state, n, init)
+
+    ansatz = QAOAAnsatz(cost_operator=M_cost, reps=reps,
+                        initial_state=initial_state)
     parameters = list(ansatz.parameters)
 
     history = []
