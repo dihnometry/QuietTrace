@@ -351,6 +351,28 @@ def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=
     return derived
 
 
+def get_problem(kind="1adc", order_str=None):
+    """Parte RAPIDA (sin QAOA): problema, BEFORE y datos que no dependen de QAOA."""
+    prob = _problem(kind, order_str)
+    nets = prob["nets"]
+    n = len(nets)
+    before_bits = [0] * n
+    before = _breakdown(before_bits, prob["W"], prob["vias"], prob["lam_v"],
+                        prob["conflicts"], prob["M"])
+    return {
+        "source": "problem",
+        "loading": True,
+        "meta": {"n_nets": n, "num_qubits": n},
+        "nets": nets,
+        "in_order": nets,
+        "out_order": list(prob["out_order"]),
+        "conflicts": [[nets[i], nets[j]] for (i, j) in sorted(prob["conflicts"])],
+        "weights": [[float(prob["W"][i][j]) for j in range(n)] for i in range(n)],
+        "assignments": {"before": before_bits, "before_layers": _layer_members(before_bits, nets)},
+        "costs": {"before": before},
+    }
+
+
 def get_model(kind="1adc", init_deg=None, order_str=None):
     prob = _problem(kind, order_str)
     nets = prob["nets"]

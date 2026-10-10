@@ -596,9 +596,63 @@ function finishTraces(root) {
   });
 }
 
+function loadingBoard(title) {
+  const W = 900, H = 452;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">
+    <rect x="16" y="16" width="868" height="360" rx="12" fill="${COL.board}" stroke="${COL.blockEdge}"/>
+    <text x="${W / 2}" y="205" text-anchor="middle" font-size="24" fill="${COL.muted}">Running QAOA…</text>
+    <text x="${W / 2}" y="410" text-anchor="middle" font-size="17" fill="${COL.text}">${esc(title)}</text>
+  </svg>`;
+}
+
+// Fast pre-QAOA view: BEFORE + things that do not depend on QAOA; AFTER/QAOA = loading.
+function renderLoading(model) {
+  const maps = {
+    nidx: Object.fromEntries(model.nets.map((n, i) => [n, i])),
+    rankIn: Object.fromEntries(model.in_order.map((n, i) => [n, i])),
+    rankOut: Object.fromEntries(model.out_order.map((n, i) => [n, i])),
+  };
+  const b = model.costs.before;
+  const beforeCounts = `${model.assignments.before_layers.L1.length} on L1 · ${b.violations} conflicts`;
+
+  const elBefore = document.getElementById('board-before');
+  const elAfter = document.getElementById('board-after');
+  elBefore.innerHTML = boardSvg(model, maps, model.assignments.before, `BEFORE · ${beforeCounts}`);
+  elAfter.innerHTML = loadingBoard('AFTER · running QAOA…');
+  finishTraces(elBefore);
+
+  const evo = document.getElementById('evolution');
+  if (evo) evo.innerHTML = '<p class="note">Running QAOA…</p>';
+
+  document.getElementById('stats').innerHTML = [
+    statCard('Qubits', String(model.meta.num_qubits || model.meta.n_nets), '', COL.coupling),
+    statCard('Circuit cost (lower is better)', `${fmt(b.total)} → …`, 'baseline (all L1) → after QAOA', COL.L4),
+  ].join('');
+
+  CHART_IDX = 0;
+  const charts = [];
+  CHART_SOURCE = 'model';
+  charts.push(stackedBars({
+    title: 'Cost breakdown',
+    rows: [{ label: 'Baseline', total: b.total, segments: [
+      { name: 'Coupling', value: b.coupling, color: COL.coupling },
+      { name: 'Vias', value: b.via_cost, color: COL.viaCost },
+      { name: 'Conflicts', value: b.conflict_cost, color: COL.conflictCost },
+    ] }],
+  }));
+  CHART_SOURCE = 'theoretical';
+  charts.push(combosCard('log'));
+  CHART_SOURCE = 'geometric';
+  charts.push(heatmap({ title: 'Coupling matrix', nets: model.nets, weights: model.weights, conflicts: model.conflicts }));
+  CHART_SOURCE = '';
+  document.getElementById('charts').innerHTML = charts.join('');
+  wireChartInteractions();
+}
+
 // --- render -----------------------------------------------------------------
 
 export function render(model) {
+  if (model.loading) { renderLoading(model); return; }
   const nidx = Object.fromEntries(model.nets.map((n, i) => [n, i]));
   const maps = {
     nidx,
@@ -728,6 +782,10 @@ export function render(model) {
   CHART_SOURCE = '';
   document.getElementById('charts').innerHTML = charts.join('');
 
+  wireChartInteractions();
+}
+
+function wireChartInteractions() {
   document.querySelectorAll('.combos-toggle .tg').forEach((btn) => {
     btn.onclick = () => {
       const body = document.querySelector('.combos-body');
@@ -735,8 +793,6 @@ export function render(model) {
       document.querySelectorAll('.combos-toggle .tg').forEach((x) => x.classList.toggle('active', x === btn));
     };
   });
-
-  // expand a chart into a modal
   document.querySelectorAll('.chart-expand').forEach((btn) => {
     btn.onclick = () => openChartModal(btn.closest('.chart'));
   });

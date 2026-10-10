@@ -49,7 +49,11 @@ function reportOrder() {
 }
 
 async function runPipeline() {
-  setStatus('Running the pipeline (model + QAOA)… this may take a few seconds.');
+  setStatus('Building problem…');
+  const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder())).toJs();
+  render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = loading
+  setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
+
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder())).toJs();
 
   if (hasBackend) {
