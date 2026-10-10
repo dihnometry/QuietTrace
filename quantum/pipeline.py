@@ -362,7 +362,7 @@ def get_problem(kind="1adc", order_str=None):
     return {
         "source": "problem",
         "loading": True,
-        "meta": {"n_nets": n, "num_qubits": n},
+        "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind == "2adc" else 1},
         "nets": nets,
         "in_order": nets,
         "out_order": list(prob["out_order"]),
@@ -454,6 +454,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None):
             "num_qubits": qa["num_qubits"],
             "num_parameters": qa["num_parameters"],
             "reps": REPS,
+            "adcs": 2 if kind == "2adc" else 1,
             "approx_gap": round(gap, 6) if gap is not None else None,
         },
         "nets": nets,

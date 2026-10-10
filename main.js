@@ -144,13 +144,7 @@ if (shotsNum) shotsNum.onchange = () => setShots(shotsNum.value, true);
 // --- bootstrap --------------------------------------------------------------
 
 (async () => {
-  try {
-    problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
-    if (shotsVal) shotsVal.textContent = `${readShots()} shots`;
-    await runPipeline();
-    await resample();
-  } catch (e) {
-    console.error(e);
-    setStatus(`Error: ${e}. ¿Arrancaste scripts/dev.sh con un Python con qiskit/scipy/numpy?`);
-  }
+  problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
+  if (shotsVal) shotsVal.textContent = `${readShots()} shots`;
+  setStatus('Choose the problem and connections, then press ▶ Run.');
 })();

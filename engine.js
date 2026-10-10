@@ -109,12 +109,29 @@ function boardSvg(model, maps, assignment, title) {
 
   let s = '';
   s += `<rect x="16" y="16" width="868" height="360" rx="12" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
-  s += `<rect class="fade-late" x="40" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text class="fade-late" x="90" y="215" text-anchor="middle" font-size="17" fill="${COL.text}">ADC08060</text>`;
-  s += `<text class="fade-late" x="90" y="234" text-anchor="middle" font-size="13" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
-  s += `<rect class="fade-late" x="760" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text class="fade-late" x="810" y="215" text-anchor="middle" font-size="17" fill="${COL.text}">FPGA</text>`;
-  s += `<text class="fade-late" x="810" y="234" text-anchor="middle" font-size="13" fill="${COL.muted}">receiver</text>`;
+  {
+    const adcs = (model.meta && model.meta.adcs) || 1;
+    const yOf = (r) => sz(zAt(r, nN));
+    const fTop = yOf(0) - 18, fBot = yOf(nN - 1) + 18, fc = (fTop + fBot) / 2;
+    s += `<rect class="fade-late" x="760" y="${fTop.toFixed(1)}" width="100" height="${(fBot - fTop).toFixed(1)}" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+    s += `<text class="fade-late" x="810" y="${(fc).toFixed(1)}" text-anchor="middle" font-size="17" fill="${COL.text}">FPGA</text>`;
+    s += `<text class="fade-late" x="810" y="${(fc + 19).toFixed(1)}" text-anchor="middle" font-size="13" fill="${COL.muted}">receiver</text>`;
+
+    if (adcs >= 2) {
+      const half = Math.floor(nN / 2);
+      [[0, half - 1, 'ADC1'], [half, nN - 1, 'ADC2']].forEach(([a, b, lab]) => {
+        const top = yOf(a) - 6, bot = yOf(b) + 6, c = (top + bot) / 2;
+        s += `<rect class="fade-late" x="40" y="${top.toFixed(1)}" width="100" height="${(bot - top).toFixed(1)}" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+        s += `<text class="fade-late" x="90" y="${(c).toFixed(1)}" text-anchor="middle" font-size="17" fill="${COL.text}">${lab}</text>`;
+        s += `<text class="fade-late" x="90" y="${(c + 19).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.muted}">8 bits</text>`;
+      });
+    } else {
+      const top = yOf(0) - 18, bot = yOf(nN - 1) + 18, c = (top + bot) / 2;
+      s += `<rect class="fade-late" x="40" y="${top.toFixed(1)}" width="100" height="${(bot - top).toFixed(1)}" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+      s += `<text class="fade-late" x="90" y="${(c).toFixed(1)}" text-anchor="middle" font-size="17" fill="${COL.text}">ADC08060</text>`;
+      s += `<text class="fade-late" x="90" y="${(c + 19).toFixed(1)}" text-anchor="middle" font-size="13" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
+    }
+  }
 
   model.nets.forEach((n, i) => {
     const layer = assignment[nidx[n]];
@@ -216,8 +233,16 @@ function board3d(model, maps, assignment, title) {
     s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.text}">${label}</text>`;
     s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] + 11).toFixed(1)}" text-anchor="middle" font-size="13" fill="${COL.muted}">${sub}</text>`;
   };
-  box(0, 14, 12, 36, LAYER_H.L1, 12, 'ADC08060', '8 bits · 40 MSPS');
-  box(106, 120, 12, 36, LAYER_H.L1, 12, 'FPGA', 'receiver');
+  const adcs = (model.meta && model.meta.adcs) || 1;
+  const zOf = (r) => zAt(r, nN);
+  if (adcs >= 2) {
+    const half = Math.floor(nN / 2);
+    box(0, 14, zOf(0) - 2, zOf(half - 1) + 2, LAYER_H.L1, 12, 'ADC1', '8 bits');
+    box(0, 14, zOf(half) - 2, zOf(nN - 1) + 2, LAYER_H.L1, 12, 'ADC2', '8 bits');
+  } else {
+    box(0, 14, zOf(0) - 2, zOf(nN - 1) + 2, LAYER_H.L1, 12, 'ADC08060', '8 bits · 40 MSPS');
+  }
+  box(106, 120, zOf(0) - 2, zOf(nN - 1) + 2, LAYER_H.L1, 12, 'FPGA', 'receiver');
 
   let viaIdx = 0;
   byLayer.L4.forEach((n) => {
@@ -617,6 +642,37 @@ function loadingCard(title) {
 }
 
 // Fast pre-QAOA view: BEFORE + things that do not depend on QAOA; AFTER/QAOA = loading.
+let currentView = '3d';
+
+function drawBoards(model, maps, loading) {
+  const fn = currentView === '2d' ? boardSvg : board3d;
+  const b = model.costs.before;
+  const elBefore = document.getElementById('board-before');
+  const elAfter = document.getElementById('board-after');
+  const beforeCounts = `${model.assignments.before_layers.L1.length} on L1 · ${b.violations} conflicts`;
+  elBefore.innerHTML = fn(model, maps, model.assignments.before, `BEFORE · ${beforeCounts}`);
+  if (loading) {
+    elAfter.innerHTML = loadingBoard('AFTER · running QAOA…');
+  } else {
+    const a = model.costs.after;
+    const afterCounts = `L1 ${model.assignments.after_layers.L1.length} · L4 ${model.assignments.after_layers.L4.length} · ${a.violations} conflicts`;
+    elAfter.innerHTML = fn(model, maps, model.assignments.after, `AFTER · ${afterCounts}`);
+    finishTraces(elAfter);
+  }
+  finishTraces(elBefore);
+}
+
+function wireViewTabs(model, maps, loading) {
+  document.querySelectorAll('button[data-view]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === currentView);
+    btn.onclick = () => {
+      currentView = btn.dataset.view;
+      document.querySelectorAll('button[data-view]').forEach((x) => x.classList.toggle('active', x === btn));
+      drawBoards(model, maps, loading);
+    };
+  });
+}
+
 function renderLoading(model) {
   const maps = {
     nidx: Object.fromEntries(model.nets.map((n, i) => [n, i])),
@@ -624,13 +680,9 @@ function renderLoading(model) {
     rankOut: Object.fromEntries(model.out_order.map((n, i) => [n, i])),
   };
   const b = model.costs.before;
-  const beforeCounts = `${model.assignments.before_layers.L1.length} on L1 · ${b.violations} conflicts`;
 
-  const elBefore = document.getElementById('board-before');
-  const elAfter = document.getElementById('board-after');
-  elBefore.innerHTML = boardSvg(model, maps, model.assignments.before, `BEFORE · ${beforeCounts}`);
-  elAfter.innerHTML = loadingBoard('AFTER · running QAOA…');
-  finishTraces(elBefore);
+  drawBoards(model, maps, true);
+  wireViewTabs(model, maps, true);
 
   const evo = document.getElementById('evolution');
   if (evo) evo.innerHTML = '<p class="note">Running QAOA…</p>';
@@ -679,29 +731,8 @@ export function render(model) {
   const improvement = b.total > 0 ? ((b.total - a.total) / b.total) * 100 : 0;
   const isReal = model.source === 'qaoa';
 
-  const beforeCounts = `${model.assignments.before_layers.L1.length} on L1 · ${b.violations} conflicts`;
-  const afterCounts = `L1 ${model.assignments.after_layers.L1.length} · L4 ${model.assignments.after_layers.L4.length} · ${a.violations} conflicts`;
-
-  let view = '3d';
-  const drawBoards = () => {
-    const fn = view === '2d' ? boardSvg : board3d;
-    const elBefore = document.getElementById('board-before');
-    const elAfter = document.getElementById('board-after');
-    elBefore.innerHTML = fn(model, maps, model.assignments.before, `BEFORE · ${beforeCounts}`);
-    elAfter.innerHTML = fn(model, maps, model.assignments.after, `AFTER · ${afterCounts}`);
-    finishTraces(elBefore);
-    finishTraces(elAfter);
-  };
-  drawBoards();
-
-  document.querySelectorAll('button[data-view]').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.view === view);
-    btn.onclick = () => {
-      view = btn.dataset.view;
-      document.querySelectorAll('button[data-view]').forEach((x) => x.classList.toggle('active', x === btn));
-      drawBoards();
-    };
-  });
+  drawBoards(model, maps, false);
+  wireViewTabs(model, maps, false);
 
   // solution evolution (best-so-far per iteration)
   const evo = document.getElementById('evolution');
