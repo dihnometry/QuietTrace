@@ -1189,5 +1189,8 @@
       "cost": 7.049177,
       "violations": 0
     }
-  ]
+  ],
+  "expected_cost": 13.396754,
+  "measured_energy": -17.941086,
+  "valid_mass": 0.591336
 }

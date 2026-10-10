@@ -260,7 +260,7 @@ function chartCard(title, inner) {
   return `<div class="chart" style="animation-delay:${dly}s"><h3>${esc(title)} ${badge}</h3>${inner}</div>`;
 }
 
-function energyChart({ title, xs, ys, w = 560, h = 300 }) {
+function energyChart({ title, xs, ys, mark, w = 560, h = 300 }) {
   const pad = { l: 64, r: 30, t: 34, b: 52 };
   const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
   let yMin = Math.min(...ys), yMax = Math.max(...ys);
@@ -286,6 +286,11 @@ function energyChart({ title, xs, ys, w = 560, h = 300 }) {
   });
 
   const pts = ys.map((v, i) => [X(i), Y(v)]);
+  if (mark != null && Number.isFinite(mark)) {
+    const ym = Y(mark);
+    s += `<line x1="${pad.l}" y1="${ym.toFixed(1)}" x2="${w - pad.r}" y2="${ym.toFixed(1)}" stroke="${COL.L4}" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+    s += `<text x="${(pad.l + 6)}" y="${(ym - 5).toFixed(1)}" font-size="12" fill="${COL.L4}">measured ⟨H_C⟩ ${fmt(mark, 2)}</text>`;
+  }
   const gid = nid();
   defs += vGrad(gid, COL.L1, 0.42, 0);
   s += `<path class="chart-area" d="${smoothPath(pts)} L ${pts[pts.length - 1][0].toFixed(1)},${bottom} L ${pts[0][0].toFixed(1)},${bottom} Z" fill="url(#${gid})"/>`;
@@ -635,6 +640,10 @@ export function render(model) {
     <div class="stat-bar"><span style="width:${Math.max(0, Math.min(100, improvement)).toFixed(0)}%"></span></div>
     <span class="stat-sub">vs baseline</span>
   </div>`);
+  if (model.expected_cost != null) {
+    cards.push(statCard('Expected cost', fmt(model.expected_cost),
+      model.valid_mass != null ? `${fmt(model.valid_mass * 100, 1)}% valid samples` : '', COL.L4));
+  }
   document.getElementById('stats').innerHTML = cards.join('');
 
   // charts
@@ -675,6 +684,7 @@ export function render(model) {
       title: 'QAOA convergence · energy ⟨H_C⟩',
       xs: model.convergence.x,
       ys: model.convergence.energy,
+      mark: model.measured_energy,
     }));
   }
 
@@ -706,62 +716,17 @@ export function renderBackend(q, model) {
   if (!el) return;
   if (!q || !q.counts) { el.innerHTML = ''; return; }
 
-  const n = model.nets.length;
-  const idxOf = Object.fromEntries(model.nets.map((x, i) => [x, i]));
-  const decode = (key) => {
-    const x = new Array(n).fill(0);
-    for (let i = 0; i < n; i++) x[i] = Number(key[n - 1 - i] ?? '0');
-    return x;
-  };
-  const viol = (x) => model.conflicts.reduce((acc, [A, B]) => acc + (x[idxOf[A]] === x[idxOf[B]] ? 1 : 0), 0);
+  const valid = model.valid_mass != null ? fmt(model.valid_mass * 100, 1) : null;
 
-  const entries = Object.entries(q.counts).map(([key, count]) => ({ key, count, feasible: viol(decode(key)) === 0 }));
-  entries.sort((a, b) => b.count - a.count);
-  const items = entries.slice(0, 16);
-  const total = q.shots || entries.reduce((acc, e) => acc + e.count, 0);
-  const feas = entries.filter((e) => e.feasible).reduce((acc, e) => acc + e.count, 0);
-
-  const w = 560, h = 330, pad = { l: 56, r: 18, t: 30, b: 82 };
-  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
-  const maxC = Math.max(...items.map((e) => e.count)) || 1;
-  const bw = iw / items.length;
-
-  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
-  for (let g = 0; g <= 4; g++) {
-    const yv = maxC * g / 4;
-    const y = pad.t + ih - (yv / maxC) * ih;
-    s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
-    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${Math.round(yv)}</text>`;
-  }
-  items.forEach((e, i) => {
-    const bh = Math.max((e.count / maxC) * ih, e.count > 0 ? 2 : 0);
-    const x = pad.l + i * bw + bw * 0.16;
-    const width = bw * 0.68;
-    const y = pad.t + ih - bh;
-    const color = e.feasible ? COL.L1 : COL.conflict;
-    const cx = (x + width / 2).toFixed(1);
-    s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(e.key)} · ${e.count} shots · ${e.feasible ? 'valid' : 'conflict'}</title></rect>`;
-    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="12" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(e.key)}</text>`;
-  });
-  s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
-  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="13" fill="${COL.muted}">valid</text>`;
-  s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
-  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="13" fill="${COL.muted}">conflict</text>`;
-
-  const feasiblePct = total ? (feas / total) * 100 : 0;
-  const title = `QPU result · ${q.backend_name || 'backend'} · ${q.shots || total} shots · valid ${fmt(feasiblePct, 1)}%`;
-
-  let circuitLine = '';
+  let ops = '';
   if (q.circuit) {
-    const ops = Object.entries(q.circuit.ops || {})
-      .sort((x, y) => y[1] - x[1])
+    ops = Object.entries(q.circuit.ops || {})
+      .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `${k}×${v}`)
       .join(' · ');
-    circuitLine = `<p class="note">Executed circuit: <strong>${q.circuit.num_qubits} qubits</strong> · depth ${q.circuit.depth} · ${q.circuit.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>`;
   }
 
-  const saved = CHART_SOURCE;
-  CHART_SOURCE = 'QPU';
-  el.innerHTML = chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`) + circuitLine;
-  CHART_SOURCE = saved;
+  el.innerHTML = `
+    <p class="qpu-line"><strong>${esc(q.backend_name || 'backend')}</strong> · ${q.shots || 0} shots · 1 job${valid != null ? ` · valid ${valid}%` : ''}</p>
+    ${q.circuit ? `<p class="note">Executed circuit: <strong>${q.circuit.num_qubits} qubits</strong> · depth ${q.circuit.depth} · ${q.circuit.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>` : ''}`;
 }

@@ -87,6 +87,25 @@ def _best_feasible(dist):
     return min(pool, key=lambda d: (d["cost"], -d["prob"]))
 
 
+def _ising_energy(bits, J, h):
+    s = 1.0 - 2.0 * np.asarray(bits, dtype=float)
+    J = np.asarray(J, dtype=float)
+    off = J - np.diag(np.diag(J))
+    return float(s @ np.asarray(h, dtype=float) + 0.5 * s @ off @ s)
+
+
+def _dist_stats(dist, J, h):
+    """Metricas sobre la distribucion COMPLETA (no truncada)."""
+    expected = sum(d["prob"] * d["cost"] for d in dist)
+    energy = sum(d["prob"] * _ising_energy(d["x"], J, h) for d in dist)
+    valid = sum(d["prob"] for d in dist if d["feasible"])
+    return {
+        "expected_cost": round(expected, 6),
+        "measured_energy": round(energy, 6),
+        "valid_mass": round(valid, 6),
+    }
+
+
 def _layer_members(bits, nets):
     return {
         "L1": [nets[i] for i, b in enumerate(bits) if b == 0],
@@ -173,6 +192,7 @@ def _fields_from_counts(counts, prob, n):
         "assignments_after": list(best["x"]),
         "assignments_after_layers": _layer_members(best["x"], nets),
         "shots": int(total),
+        **_dist_stats(dist, prob["J"], prob["h"]),
     }
 
 
@@ -263,4 +283,5 @@ def get_model():
         "distribution": dist[:32],
         "distribution_source": "ideal",
         "solutions": solutions,
+        **_dist_stats(dist, prob["J"], prob["h"]),
     }

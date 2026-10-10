@@ -331,3 +331,6 @@ body {
   background: linear-gradient(90deg, var(--accent), #b6ff9e);
   box-shadow: 0 0 10px rgba(84, 255, 87, 0.5);
 }
+
+/* linea informativa del panel QPU */
+.qpu-line { margin: 0 0 0.5rem; font-size: 1rem; color: var(--fg); }

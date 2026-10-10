@@ -29,6 +29,10 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
   charts use that backend's counts: *Circuit distribution* shows **ideal vs backend**, and
   *Cost breakdown* (after) + the after-board come from the backend. The optimization trace
   (*QAOA convergence*, *evolution*) stays local.
+- **Noise shows up in:** the *ideal vs backend* distribution, the **Expected cost** chip
+  (+ valid %), and the dashed **measured ⟨H_C⟩** line on the convergence chart. (The
+  reported *best feasible* solution is robust: it is post-selected, so moderate noise leaves
+  it unchanged.)
 - **QPU run:** see below.
 
 ## Run on a QPU
