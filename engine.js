@@ -391,6 +391,39 @@ function combosCard(scale) {
   </div>`;
 }
 
+function distributionChart({ title, items, w = 560, h = 330 }) {
+  const pad = { l: 56, r: 18, t: 30, b: 82 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const maxP = Math.max(...items.map((d) => d.prob)) || 1;
+  const bw = iw / items.length;
+
+  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let g = 0; g <= 4; g++) {
+    const yv = maxP * g / 4;
+    const y = pad.t + ih - (yv / maxP) * ih;
+    s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmt(yv, 2)}</text>`;
+  }
+  items.forEach((d, i) => {
+    const bh = Math.max((d.prob / maxP) * ih, d.prob > 0 ? 2 : 0);
+    const x = pad.l + i * bw + bw * 0.16;
+    const width = bw * 0.68;
+    const y = pad.t + ih - bh;
+    const color = d.feasible ? COL.L1 : COL.conflict;
+    const cx = (x + width / 2).toFixed(1);
+    const label = (d.x || []).join('');
+    s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(label)} · p=${fmt(d.prob, 3)} · cost ${fmt(d.cost)} · ${d.feasible ? 'valid' : 'conflict'}</title></rect>`;
+    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="11" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(label)}</text>`;
+  });
+  s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="13" fill="${COL.muted}">valid</text>`;
+  s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
+  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="13" fill="${COL.muted}">conflict</text>`;
+  s += `<text x="${w - pad.r}" y="${h - 13}" text-anchor="end" font-size="12" fill="${COL.muted}">probability per bitstring</text>`;
+
+  return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+}
+
 function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
   const n = nets.length;
   const cell = 32, gap = 4;
@@ -591,6 +624,11 @@ export function render(model) {
       ] },
     ],
   }));
+
+  CHART_SOURCE = model.distribution_source === 'backend' ? 'backend' : (isReal ? 'ideal' : 'mock');
+  if (Array.isArray(model.distribution) && model.distribution.length) {
+    charts.push(distributionChart({ title: 'Circuit distribution', items: model.distribution }));
+  }
 
   CHART_SOURCE = 'QAOA';
   if (model.convergence && Array.isArray(model.convergence.energy)) {

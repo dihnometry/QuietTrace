@@ -41,6 +41,12 @@ def _bits_from_index(k, n):
     return [(k >> i) & 1 for i in range(n)]
 
 
+def _bits_from_key(key, n):
+    """Qiskit get_counts keys: key[0] es el qubit n-1 (MSB primero)."""
+    key = str(key)
+    return [int(key[n - 1 - i]) for i in range(n)]
+
+
 def _breakdown(bits, W, vias, lam_v, conflicts, Mpen):
     x = np.asarray(bits, dtype=int)
     n = len(x)
@@ -137,6 +143,43 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
     }
 
 
+def model_from_counts(counts):
+    """Recalcula distribucion / solucion / coste desde los conteos del backend.
+
+    Devuelve los campos que dependen de la medicion (con la misma forma que
+    `get_model`) para que las graficas reflejen el backend (ruidoso) si existe.
+    """
+    prob = _problem()
+    nets = prob["nets"]
+    n = len(nets)
+    W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
+                                       prob["conflicts"], prob["M"])
+
+    total = sum(int(c) for c in counts.values()) or 1
+    dist = []
+    for key, cnt in counts.items():
+        bits = _bits_from_key(key, n)
+        bd = _breakdown(bits, W, vias, lam_v, conflicts, Mpen)
+        dist.append({
+            "x": bits,
+            "prob": round(int(cnt) / total, 6),
+            "cost": bd["total"],
+            "feasible": bd["violations"] == 0,
+        })
+    dist.sort(key=lambda d: (-d["prob"], d["cost"]))
+    best = _best_feasible(dist)
+
+    return {
+        "distribution": dist[:32],
+        "distribution_source": "backend",
+        "best": best,
+        "costs_after": _breakdown(best["x"], W, vias, lam_v, conflicts, Mpen),
+        "assignments_after": list(best["x"]),
+        "assignments_after_layers": _layer_members(best["x"], nets),
+        "shots": int(total),
+    }
+
+
 def get_model():
     prob = _problem()
     nets = prob["nets"]
@@ -212,5 +255,7 @@ def get_model():
             "x": list(range(len(hist))),
             "energy": [round(v, 4) for v in hist],
         },
+        "distribution": dist[:32],
+        "distribution_source": "ideal",
         "solutions": solutions,
     }

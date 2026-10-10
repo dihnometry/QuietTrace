@@ -30,8 +30,20 @@ try {
     setStatus('Local optimization done. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(backend, 1024)).toJs();
-      renderBackend(q, model);
-      setStatus(`Local QAOA ready · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job).`);
+
+      // Recompute distribution-derived fields from the backend counts, so the
+      // charts (distribution, cost breakdown, after-board) reflect the noisy backend.
+      const over = (await pipeline.model_from_counts.callPromising(q.counts)).toJs();
+      model.distribution = over.distribution;
+      model.distribution_source = over.distribution_source;
+      model.costs.after = over.costs_after;
+      model.assignments.after = over.assignments_after;
+      model.assignments.after_layers = over.assignments_after_layers;
+
+      render(model);            // redraw charts/boards from the backend result
+      renderBackend(q, model);  // QPU panel (counts + executed circuit)
+
+      setStatus(`Local QAOA ready · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job) · charts from that backend.`);
     } catch (errJob) {
       console.error(errJob);
       setStatus(`Local QAOA ready · QPU run did not complete: ${errJob}`);

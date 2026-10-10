@@ -23,8 +23,11 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
-- **Charts:** *Cost breakdown*, *QAOA convergence* (energy per iteration), *Possible
-  configurations* (log/linear toggle) and *Coupling matrix*.
+- **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
+  iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
+- **When a backend exists**, the distribution-dependent charts (*Circuit distribution*,
+  *Cost breakdown* after, the after-board) are recomputed from that backend's counts
+  (badge `backend`); the optimization trace (*QAOA convergence*, *evolution*) stays local.
 - **QPU run:** see below.
 
 ## Run on a QPU
