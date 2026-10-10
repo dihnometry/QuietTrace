@@ -16,10 +16,11 @@ Optimización cuántica de **asignación de capas** en una PCB **ADC–FPGA**, e
 
 ## Qué muestra
 
-- **PCB (vista superior):** el ADC08060 a un lado, la FPGA al otro y las 9 redes
-  (`D0`–`D7`, `CLK`) cruzando el corredor. Compara **antes** (todas en L1, con los 6
-  conflictos geométricos) y **después** (una solución factible de ejemplo, con las redes
-  repartidas entre L1 y L4 y las vías de señal).
+- **PCB:** vista **3D** del stackup (L1 señales · L2 GND · L3 GND · L4 señales) y vista
+  **2D** en planta, conmutables. Las 9 redes (`D0`–`D7`, `CLK`) recorren el corredor con
+  **ruteo realista a 45°** (codos tipo PCB, no diagonales rectas). Compara **antes** (todas
+  en L1, con los 6 conflictos geométricos) y **después** (solución factible de ejemplo, redes
+  repartidas entre L1 y L4, con las **vías** atravesando el stackup).
 - **Gráficas:** desglose de costo (acoplamiento + vías + conflictos), costo vs. `λv`,
   costo vs. `M`, curva mock de QAOA (costo y factibilidad vs. profundidad `p`), convergencia
   mock y matriz de acoplamiento `w_ij`.

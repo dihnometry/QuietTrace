@@ -67,6 +67,37 @@ body {
 .board { margin: 0; }
 .board svg { display: block; }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+.view-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.25rem;
+}
+.tab {
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.tab:hover { border-color: var(--accent); }
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1020;
+  font-weight: 600;
+}
+
 .note { margin: 0.9rem 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
 
 /* charts */
