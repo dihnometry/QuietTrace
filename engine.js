@@ -1,7 +1,8 @@
 // QuietTracE — motor de visualización (render puro, sin datos).
 //
 // `render(model)` dibuja la PCB (vista 2D en planta y vista 3D del stackup)
-// antes/después de la optimización, más las gráficas de valor.
+// antes/después de la optimización, más las gráficas de valor, con animación de
+// "construcción" al cargar.
 //
 // NO implementa la optimización QUBO/Ising/QAOA. No usa `backend` ni envía jobs.
 
@@ -23,6 +24,10 @@ const COL = {
 const fmt = (n, d = 2) => Number(n).toFixed(d);
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
+const reducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia
+  && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 function hexLerp(a, b, t) {
   const pa = a.match(/\w\w/g).map((h) => parseInt(h, 16));
   const pb = b.match(/\w\w/g).map((h) => parseInt(h, 16));
@@ -38,6 +43,7 @@ function shade(hex, amt) {
 
 let GID = 0;
 const nid = () => `g${GID++}`;
+let CHART_IDX = 0;
 
 // Curva suave (Catmull-Rom -> Bézier) para líneas de gráfica.
 function smoothPath(pts) {
@@ -83,9 +89,7 @@ function polyInter(pa, pb) {
   return null;
 }
 
-// Ruteo realista de una pista en el corredor: tramo recto, codo a 45° y tramo
-// recto (el clásico "jog" de una PCB). Coordenadas de placa: x en [16,104],
-// z en [0,Lz].
+// Ruteo realista de una pista: tramo recto, codo a 45° y tramo recto.
 const RX0 = 16, RX1 = 104, LZ = 48;
 
 function route(z1, z2) {
@@ -97,6 +101,9 @@ function route(z1, z2) {
 
 const zAt = (rank, nNets) => 5 + rank * ((LZ - 10) / (nNets - 1));
 
+const traceDelay = (i) => (0.15 + i * 0.06).toFixed(2);
+const lateDelay = (i, base = 0.8) => (base + i * 0.05).toFixed(2);
+
 // --- PCB vista 2D (planta) --------------------------------------------------
 
 function boardSvg(model, maps, assignment, title) {
@@ -106,36 +113,37 @@ function boardSvg(model, maps, assignment, title) {
   const sz = (z) => 60 + z * 6.25;
   const pt = ([x, z]) => [sx(x), sz(z)];
   const polyStr = (arr) => arr.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const nN = model.nets.length;
 
   let s = '';
   s += `<rect x="16" y="16" width="868" height="360" rx="12" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
-  s += `<rect x="40" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text x="90" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">ADC08060</text>`;
-  s += `<text x="90" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
-  s += `<rect x="760" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text x="810" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">FPGA</text>`;
-  s += `<text x="810" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">receptora</text>`;
+  s += `<rect class="fade-late" x="40" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+  s += `<text class="fade-late" x="90" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">ADC08060</text>`;
+  s += `<text class="fade-late" x="90" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
+  s += `<rect class="fade-late" x="760" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
+  s += `<text class="fade-late" x="810" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">FPGA</text>`;
+  s += `<text class="fade-late" x="810" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">receptora</text>`;
 
-  model.nets.forEach((n) => {
+  model.nets.forEach((n, i) => {
     const layer = assignment[nidx[n]];
     const color = layer === 0 ? COL.L1 : COL.L4;
-    const dash = layer === 0 ? '' : 'stroke-dasharray="7 5"';
-    const pts = route(zAt(rankIn[n], model.nets.length), zAt(rankOut[n], model.nets.length)).map(pt);
-    s += `<polyline points="${polyStr(pts)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95" ${dash}/>`;
+    const pts = route(zAt(rankIn[n], nN), zAt(rankOut[n], nN)).map(pt);
+    const dly = traceDelay(i);
+    s += `<polyline class="trace${layer === 1 ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${polyStr(pts)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95"/>`;
     if (layer === 1) {
-      pts.forEach(([x, y]) => { s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`; });
+      pts.forEach(([x, y]) => { s += `<circle class="fade-late" style="animation-delay:${lateDelay(i)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`; });
     }
-    s += `<text x="${(pts[0][0] - 8).toFixed(1)}" y="${(pts[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(pts[0][0] - 8).toFixed(1)}" y="${(pts[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
   });
 
   const alive = model.conflicts.filter(([a, b]) => assignment[nidx[a]] === assignment[nidx[b]]);
   alive.forEach(([a, b]) => {
-    const pa = route(zAt(rankIn[a], model.nets.length), zAt(rankOut[a], model.nets.length)).map(pt);
-    const pb = route(zAt(rankIn[b], model.nets.length), zAt(rankOut[b], model.nets.length)).map(pt);
+    const pa = route(zAt(rankIn[a], nN), zAt(rankOut[a], nN)).map(pt);
+    const pb = route(zAt(rankIn[b], nN), zAt(rankOut[b], nN)).map(pt);
     const p = polyInter(pa, pb);
     if (p) {
-      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="12" fill="rgba(255,84,112,0.16)" stroke="${COL.conflict}" stroke-width="2"/>`;
-      s += `<text x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="15" fill="${COL.conflict}">✕</text>`;
+      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="12" fill="rgba(255,84,112,0.16)" stroke="${COL.conflict}" stroke-width="2"/>`;
+      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="15" fill="${COL.conflict}">✕</text>`;
     }
   });
 
@@ -164,16 +172,14 @@ function board3d(model, maps, assignment, title) {
   const LAYER_H = { L1: 0, L2: 24, L3: 48, L4: 72 };
   const FILL = { L1: '#33477f', L2: '#3a4056', L3: '#3a4056', L4: '#7a5a2f' };
   const STROKE = { L1: COL.L1, L2: COL.muted, L3: COL.muted, L4: COL.L4 };
+  const nN = model.nets.length;
 
-  const P = (x, z, h) => [
-    OX + (x * EX.x + z * EZ.x) * S,
-    OY + (x * EX.y + z * EZ.y + h) * S,
-  ];
-  const P3 = (x, z, h) => P(x, z, h);
+  const P = (x, z, h) => [OX + (x * EX.x + z * EZ.x) * S, OY + (x * EX.y + z * EZ.y + h) * S];
   const pts = (arr) => arr.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-  const route3 = (n, h) => route(zAt(rankIn[n], model.nets.length), zAt(rankOut[n], model.nets.length)).map(([x, z]) => P3(x, z, h));
+  const route3 = (n, h) => route(zAt(rankIn[n], nN), zAt(rankOut[n], nN)).map(([x, z]) => P(x, z, h));
 
   let s = '';
+  let traceIdx = 0;
 
   const slab = (h, fill, stroke, label) => {
     const A = P(0, 0, h), B = P(Lx, 0, h), C = P(Lx, LZ, h), D = P(0, LZ, h);
@@ -188,10 +194,10 @@ function board3d(model, maps, assignment, title) {
   const trace = (n, layer) => {
     const h = LAYER_H[layer];
     const color = layer === 'L1' ? COL.L1 : COL.L4;
-    const dash = layer === 'L1' ? '' : 'stroke-dasharray="6 4"';
     const rp = route3(n, h);
-    s += `<polyline points="${pts(rp)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95" ${dash}/>`;
-    s += `<text x="${(rp[0][0] - 6).toFixed(1)}" y="${(rp[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
+    const dly = traceDelay(traceIdx++);
+    s += `<polyline class="trace${layer === 'L4' ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${pts(rp)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95"/>`;
+    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(rp[0][0] - 6).toFixed(1)}" y="${(rp[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
   };
 
   const byLayer = { L1: [], L4: [] };
@@ -207,22 +213,24 @@ function board3d(model, maps, assignment, title) {
   const box = (x0, x1, z0, z1, h, ht, label, sub) => {
     const B = P(x1, z0, h), C = P(x1, z1, h), D = P(x0, z1, h);
     const Ct = P(x1, z1, h - ht), Dt = P(x0, z1, h - ht), Bt = P(x1, z0, h - ht), At = P(x0, z0, h - ht);
-    s += `<polygon points="${pts([D, C, Ct, Dt])}" fill="#22305a" stroke="${COL.blockEdge}" stroke-width="1"/>`;
-    s += `<polygon points="${pts([B, C, Ct, Bt])}" fill="#1a2546" stroke="${COL.blockEdge}" stroke-width="1"/>`;
-    s += `<polygon points="${pts([At, Bt, Ct, Dt])}" fill="${COL.block}" stroke="${COL.blockEdge}" stroke-width="1.2"/>`;
+    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([D, C, Ct, Dt])}" fill="#22305a" stroke="${COL.blockEdge}" stroke-width="1"/>`;
+    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([B, C, Ct, Bt])}" fill="#1a2546" stroke="${COL.blockEdge}" stroke-width="1"/>`;
+    s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([At, Bt, Ct, Dt])}" fill="${COL.block}" stroke="${COL.blockEdge}" stroke-width="1.2"/>`;
     const c = P((x0 + x1) / 2, (z0 + z1) / 2, h - ht);
-    s += `<text x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.text}">${label}</text>`;
-    s += `<text x="${c[0].toFixed(1)}" y="${(c[1] + 11).toFixed(1)}" text-anchor="middle" font-size="10" fill="${COL.muted}">${sub}</text>`;
+    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.text}">${label}</text>`;
+    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] + 11).toFixed(1)}" text-anchor="middle" font-size="10" fill="${COL.muted}">${sub}</text>`;
   };
   box(0, 14, 12, 36, LAYER_H.L1, 12, 'ADC08060', '8 bits · 40 MSPS');
   box(106, 120, 12, 36, LAYER_H.L1, 12, 'FPGA', 'receptora');
 
+  let viaIdx = 0;
   byLayer.L4.forEach((n) => {
-    [[RX0, zAt(rankIn[n], model.nets.length)], [RX1, zAt(rankOut[n], model.nets.length)]].forEach(([x, z]) => {
+    [[RX0, zAt(rankIn[n], nN)], [RX1, zAt(rankOut[n], nN)]].forEach(([x, z]) => {
       const a = P(x, z, LAYER_H.L1), b = P(x, z, LAYER_H.L4);
-      s += `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${COL.L4}" stroke-width="2" opacity="0.85"/>`;
-      s += `<circle cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
-      s += `<circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
+      const dly = lateDelay(viaIdx++);
+      s += `<line class="fade-late" style="animation-delay:${dly}s" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${COL.L4}" stroke-width="2" opacity="0.85"/>`;
+      s += `<circle class="fade-late" style="animation-delay:${dly}s" cx="${a[0].toFixed(1)}" cy="${a[1].toFixed(1)}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
+      s += `<circle class="fade-late" style="animation-delay:${dly}s" cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
     });
   });
 
@@ -231,8 +239,8 @@ function board3d(model, maps, assignment, title) {
     const layer = assignment[nidx[a]] === 0 ? 'L1' : 'L4';
     const p = polyInter(route3(a, LAYER_H[layer]), route3(b, LAYER_H[layer]));
     if (p) {
-      s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="rgba(255,84,112,0.18)" stroke="${COL.conflict}" stroke-width="2"/>`;
-      s += `<text x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.conflict}">✕</text>`;
+      s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="rgba(255,84,112,0.18)" stroke="${COL.conflict}" stroke-width="2"/>`;
+      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.conflict}">✕</text>`;
     }
   });
 
@@ -256,7 +264,8 @@ function board3d(model, maps, assignment, title) {
 // --- gráficas ---------------------------------------------------------------
 
 function chartCard(title, inner) {
-  return `<div class="chart"><h3>${esc(title)}</h3>${inner}</div>`;
+  const dly = (CHART_IDX++ * 0.09).toFixed(2);
+  return `<div class="chart" style="animation-delay:${dly}s"><h3>${esc(title)}</h3>${inner}</div>`;
 }
 
 function lineChart({ title, xs, series, xLabel = '', w = 560, h = 306 }) {
@@ -286,17 +295,22 @@ function lineChart({ title, xs, series, xLabel = '', w = 560, h = 306 }) {
     }
   });
 
-  series.forEach((sr) => {
+  series.forEach((sr, k) => {
     const pts = sr.values.map((v, i) => [X(i), Y(v)]);
+    const dly = (0.2 + k * 0.15).toFixed(2);
     if (!sr.dash) {
       const gid = nid();
       defs += vGrad(gid, sr.color, 0.42, 0);
-      s += `<path d="${smoothPath(pts)} L ${pts[pts.length - 1][0].toFixed(1)},${bottom} L ${pts[0][0].toFixed(1)},${bottom} Z" fill="url(#${gid})"/>`;
+      s += `<path class="chart-area" style="animation-delay:${dly}s" d="${smoothPath(pts)} L ${pts[pts.length - 1][0].toFixed(1)},${bottom} L ${pts[0][0].toFixed(1)},${bottom} Z" fill="url(#${gid})"/>`;
     }
-    s += `<path d="${smoothPath(pts)}" fill="none" stroke="${sr.color}" stroke-width="2.6" stroke-linecap="round" ${sr.dash ? `stroke-dasharray="${sr.dash}"` : ''}/>`;
-    pts.forEach((p) => { s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#0f1830" stroke="${sr.color}" stroke-width="2"/>`; });
+    if (sr.dash) {
+      s += `<path class="chart-area" style="animation-delay:${dly}s" d="${smoothPath(pts)}" fill="none" stroke="${sr.color}" stroke-width="2.6" stroke-dasharray="${sr.dash}"/>`;
+    } else {
+      s += `<path class="chart-line" style="animation-delay:${dly}s" pathLength="1" d="${smoothPath(pts)}" fill="none" stroke="${sr.color}" stroke-width="2.6" stroke-linecap="round"/>`;
+    }
+    pts.forEach((p) => { s += `<circle class="chart-dot" style="animation-delay:${(Number(dly) + 0.5).toFixed(2)}s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#0f1830" stroke="${sr.color}" stroke-width="2"/>`; });
     const last = pts[pts.length - 1];
-    s += `<text x="${(last[0] + 7).toFixed(1)}" y="${(last[1] - 8).toFixed(1)}" font-size="11" font-weight="700" fill="${sr.color}">${fmt(sr.values[sr.values.length - 1], 2)}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.5).toFixed(2)}s" x="${(last[0] + 7).toFixed(1)}" y="${(last[1] - 8).toFixed(1)}" font-size="11" font-weight="700" fill="${sr.color}">${fmt(sr.values[sr.values.length - 1], 2)}</text>`;
   });
 
   series.forEach((sr, k) => {
@@ -322,19 +336,20 @@ function stackedBars({ title, rows, w = 560, h = 300 }) {
     s += `<text x="${pad.l - 14}" y="${y + bh / 2 + 5}" text-anchor="end" font-size="13" fill="${COL.text}">${esc(r.label)}</text>`;
     s += `<rect x="${pad.l}" y="${y}" width="${iw}" height="${bh}" rx="${bh / 2}" fill="#0f1830"/>`;
     let x = pad.l;
-    r.segments.forEach((seg) => {
+    r.segments.forEach((seg, si) => {
       const segW = (seg.value / maxTotal) * iw;
       if (segW <= 0) return;
       const gid = nid();
       defs += vGrad(gid, seg.color, 0.95, 0.65);
       const wSeg = Math.max(0, segW - 3);
-      s += `<rect x="${x.toFixed(1)}" y="${y}" width="${wSeg.toFixed(1)}" height="${bh}" rx="7" fill="url(#${gid})"/>`;
+      const dly = (0.25 + ri * 0.18 + si * 0.12).toFixed(2);
+      s += `<rect class="bar" style="animation-delay:${dly}s" x="${x.toFixed(1)}" y="${y}" width="${wSeg.toFixed(1)}" height="${bh}" rx="7" fill="url(#${gid})"/>`;
       if (segW > 38) {
-        s += `<text x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#0b1020">${fmt(seg.value, 1)}</text>`;
+        s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.35).toFixed(2)}s" x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#0b1020">${fmt(seg.value, 1)}</text>`;
       }
       x += segW;
     });
-    s += `<text x="${(pad.l + (r.total / maxTotal) * iw + 10).toFixed(1)}" y="${y + bh / 2 + 5}" font-size="13" font-weight="600" fill="${COL.text}">${fmt(r.total, 2)}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${(0.25 + ri * 0.18 + 0.4).toFixed(2)}s" x="${(pad.l + (r.total / maxTotal) * iw + 10).toFixed(1)}" y="${y + bh / 2 + 5}" font-size="13" font-weight="600" fill="${COL.text}">${fmt(r.total, 2)}</text>`;
   });
 
   rows[0].segments.forEach((seg, k) => {
@@ -353,9 +368,8 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
   const maxW = Math.max(...weights.flat()) || 1;
   const cset = new Set(conflicts.map(([a, b]) => `${nets.indexOf(a)}|${nets.indexOf(b)}`));
 
-  let defs = '';
   const cbarId = nid();
-  defs = `<linearGradient id="${cbarId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#16203c"/><stop offset="100%" stop-color="${COL.L1}"/></linearGradient>`;
+  const defs = `<linearGradient id="${cbarId}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#16203c"/><stop offset="100%" stop-color="${COL.L1}"/></linearGradient>`;
 
   let s = '';
   nets.forEach((nn, i) => {
@@ -367,16 +381,17 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
     for (let j = 0; j < n; j++) {
       const x = ox + j * cell + gap / 2, y = oy + i * cell + gap / 2;
       const d = cell - gap;
+      const dly = ((i * n + j) * 0.006 + 0.2).toFixed(2);
       if (i === j) {
-        s += `<rect x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${COL.grid}" opacity="0.35"/>`;
+        s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${COL.grid}" opacity="0.35"/>`;
         continue;
       }
       const isConflict = cset.has(`${i}|${j}`) || cset.has(`${j}|${i}`);
       const t = isConflict ? 0 : weights[i][j] / maxW;
       const fill = isConflict ? 'rgba(255,84,112,0.22)' : hexLerp('#16203c', COL.L1, t);
-      s += `<rect x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${fill}" ${isConflict ? `stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"` : ''}/>`;
+      s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${fill}" ${isConflict ? `stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"` : ''}/>`;
       if (isConflict) {
-        s += `<text x="${(x + d / 2).toFixed(1)}" y="${(y + d / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.conflict}">✕</text>`;
+        s += `<text class="pop-late" style="animation-delay:${(Number(dly) + 0.2).toFixed(2)}s" x="${(x + d / 2).toFixed(1)}" y="${(y + d / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.conflict}">✕</text>`;
       }
     }
   }
@@ -400,6 +415,20 @@ function statCard(label, value, sub = '', accent = '') {
   </div>`;
 }
 
+// Convierte las pistas de L4 (dibujadas sólidas) a discontinuas al terminar.
+function finishTraces(root) {
+  if (!root || !root.querySelectorAll) return;
+  const apply = (el) => {
+    el.style.animation = 'none';
+    el.style.strokeDasharray = '7 5';
+    el.style.strokeDashoffset = '0';
+  };
+  root.querySelectorAll('.trace-l4').forEach((el) => {
+    if (reducedMotion()) { apply(el); return; }
+    el.addEventListener('animationend', () => apply(el), { once: true });
+  });
+}
+
 // --- render -----------------------------------------------------------------
 
 export function render(model) {
@@ -420,10 +449,12 @@ export function render(model) {
   let view = '3d';
   const drawBoards = () => {
     const fn = view === '2d' ? boardSvg : board3d;
-    document.getElementById('board-before').innerHTML =
-      fn(model, maps, model.assignments.before, `ANTES · ${beforeCounts}`);
-    document.getElementById('board-after').innerHTML =
-      fn(model, maps, model.assignments.after, `DESPUÉS · ${afterCounts}`);
+    const elBefore = document.getElementById('board-before');
+    const elAfter = document.getElementById('board-after');
+    elBefore.innerHTML = fn(model, maps, model.assignments.before, `ANTES · ${beforeCounts}`);
+    elAfter.innerHTML = fn(model, maps, model.assignments.after, `DESPUÉS · ${afterCounts}`);
+    finishTraces(elBefore);
+    finishTraces(elAfter);
   };
   drawBoards();
 
@@ -445,6 +476,7 @@ export function render(model) {
     statCard('Parámetros', `λv=${model.meta.lambda_v} · M=${model.meta.m_penalty}`, 'mock', COL.muted),
   ].join('');
 
+  CHART_IDX = 0;
   document.getElementById('charts').innerHTML = [
     stackedBars({
       title: 'Desglose de costo',

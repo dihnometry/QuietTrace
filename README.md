@@ -18,7 +18,9 @@ Optimización cuántica de **asignación de capas** en una PCB **ADC–FPGA**, e
 
 - **PCB:** vista **3D** del stackup (L1 señales · L2 GND · L3 GND · L4 señales) y vista
   **2D** en planta, conmutables. Las 9 redes (`D0`–`D7`, `CLK`) recorren el corredor con
-  **ruteo realista a 45°** (codos tipo PCB, no diagonales rectas). Compara **antes** (todas
+  **ruteo realista a 45°** (codos tipo PCB, no diagonales rectas). Al abrir, las pistas se
+  **dibujan** progresivamente, luego aparecen las vías/componentes y los marcadores de
+  conflicto. Compara **antes** (todas
   en L1, con los 6 conflictos geométricos) y **después** (solución factible de ejemplo, redes
   repartidas entre L1 y L4, con las **vías** atravesando el stackup).
 - **Gráficas:** desglose de costo (acoplamiento + vías + conflictos), costo vs. `λv`,

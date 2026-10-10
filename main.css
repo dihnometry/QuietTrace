@@ -131,3 +131,85 @@ body {
   border-top: 1px solid var(--edge);
   padding-top: 0.9rem;
 }
+
+/* --- animaciones de construcción --- */
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes growX {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* pistas de la PCB: se dibujan de izquierda a derecha */
+.trace {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* vías, etiquetas, bloques: aparecen al terminar las pistas */
+.fade-late {
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+/* marcadores de conflicto */
+.pop-late {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) forwards;
+}
+
+/* gráficas */
+.chart {
+  opacity: 0;
+  animation: riseIn 0.55s ease forwards;
+}
+.chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.chart-area {
+  opacity: 0;
+  animation: fadeIn 0.9s ease forwards;
+}
+.chart-dot {
+  opacity: 0;
+  animation: pop 0.3s ease forwards;
+}
+.bar {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: growX 0.75s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.cell {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pop 0.35s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trace, .fade-late, .pop-late, .chart, .chart-line, .chart-area, .chart-dot, .bar, .cell {
+    animation: none !important;
+    opacity: 1 !important;
+    stroke-dashoffset: 0 !important;
+    stroke-dasharray: none;
+  }
+  .trace { stroke-dasharray: none; }
+}
