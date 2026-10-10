@@ -408,8 +408,9 @@ function combosSvg(scale, w = 560, h = 320, nMax = 27) {
 function combosCard(scale) {
   const dly = (CHART_IDX++ * 0.09).toFixed(2);
   return `<div class="chart" style="animation-delay:${dly}s">
-    <h3>Possible configurations <span class="chart-src">theoretical</span>
+    <h3><span class="chart-title">Possible configurations</span> <span class="chart-src">theoretical</span>
       <span class="combos-toggle"><button class="tg${scale === 'log' ? ' active' : ''}" data-s="log" type="button">log</button><button class="tg${scale === 'linear' ? ' active' : ''}" data-s="linear" type="button">linear</button></span>
+      <button class="chart-expand" type="button" title="Expand" aria-label="Expand chart">⤢</button>
     </h3>
     <div class="combos-body">${combosSvg(scale)}</div>
   </div>`;
