@@ -21,7 +21,6 @@ REPS = 3                # profundidad QAOA (como main.py)
 MAXITER = 150
 SWEEP_REPS = [1, 2, 3]  # barrido de profundidad
 SWEEP_MAXITER = 80
-SNAPSHOT_ITERS = [5, 10, 25]  # iteraciones donde se mira la solución (ver evolución)
 
 
 def _problem():
@@ -103,6 +102,43 @@ def _full(bits, prob, lam_v=None, m_pen=None):
                        prob["M"] if m_pen is None else m_pen)
 
 
+def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
+    """Optimiza localmente y ejecuta el circuito QAOA final UNA vez en `backend`.
+
+    Cumple la regla de Qollab de un job por run en IonQ: no se itera contra el
+    QPU; se optimiza con el simulador rápido y se envía un único circuito.
+    Devuelve los conteos medidos.
+    """
+    prob = _problem()
+    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter)
+
+    from qiskit import transpile
+    from . import qaoa as ref  # quantum/qaoa.py (referencia, usa Qiskit)
+
+    circuit = ref.build_circuit(prob["J"], prob["h"], reps, qa["theta"])
+    # transpila al conjunto de puertas del backend: los simuladores locales
+    # rechazan PauliEvolutionGate sin transpilar.
+    tcirc = transpile(circuit, backend=backend, optimization_level=1)
+
+    job = backend.run(tcirc, shots=shots)
+    counts = job.result().get_counts()
+
+    name = getattr(backend, "name", None)
+    if callable(name):
+        try:
+            name = name()
+        except Exception:  # noqa: BLE001
+            name = None
+
+    return {
+        "counts": {str(k): int(v) for k, v in counts.items()},
+        "shots": int(shots),
+        "num_qubits": int(qa["num_qubits"]),
+        "reps": reps,
+        "backend_name": str(name) if name else "",
+    }
+
+
 def get_model():
     prob = _problem()
     nets = prob["nets"]
@@ -111,8 +147,7 @@ def get_model():
                                        prob["conflicts"], prob["M"])
 
     # --- QAOA principal ---
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER,
-                       snapshots=SNAPSHOT_ITERS)
+    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
     dist = _distribution(qa["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
     best = _best_feasible(dist)
     feas_mass = round(sum(d["prob"] for d in dist if d["feasible"]), 6)
@@ -150,25 +185,37 @@ def get_model():
 
     it_cost = [round(v, 4) for v in qa["history"]]
 
-    # --- evolución de la solución: snapshots (5, 10, 25) + final ---
+    # --- evolución de la solución: mejor-hasta-esa-iteración + energía ---
+    argmax = qa.get("argmax_history") or []
+    hist = qa["history"]
+    per_eval = []
+    for k in argmax:
+        bits = _bits_from_index(int(k), n)
+        bd = _breakdown(bits, W, vias, lam_v, conflicts, Mpen)
+        per_eval.append({"x": bits, "cost": bd["total"], "violations": bd["violations"]})
+
+    checkpoints = sorted({c for c in (1, 2, 5, 10, 25, 50, 100) if c <= len(hist)} | {len(hist)})
+    best_f, best_a, snap_by_iter = None, None, {}
+    for idx in range(1, len(hist) + 1):
+        if idx - 1 < len(per_eval):
+            cand = per_eval[idx - 1]
+            if best_a is None or cand["cost"] < best_a["cost"]:
+                best_a = cand
+            if cand["violations"] == 0 and (best_f is None or cand["cost"] < best_f["cost"]):
+                best_f = cand
+        if idx in checkpoints:
+            snap_by_iter[idx] = best_f or best_a
+
     solutions = []
-    for snap in qa.get("snapshots", []):
-        d = _distribution(snap["probabilities"], W, vias, lam_v, conflicts, Mpen, n)
-        bd = _best_feasible(d)
+    for t in checkpoints:
+        s = snap_by_iter[t]
         solutions.append({
-            "iter": snap["iter"],
-            "x": bd["x"],
-            "cost": bd["cost"],
-            "prob": bd["prob"],
-            "violations": _breakdown(bd["x"], W, vias, lam_v, conflicts, Mpen)["violations"],
+            "iter": t,
+            "x": s["x"],
+            "cost": s["cost"],
+            "violations": s["violations"],
+            "energy": round(hist[t - 1], 4),
         })
-    solutions.append({
-        "iter": len(it_cost),
-        "x": best["x"],
-        "cost": best["cost"],
-        "prob": best["prob"],
-        "violations": after["violations"],
-    })
 
     return {
         "source": "qaoa",

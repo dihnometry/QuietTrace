@@ -30,7 +30,20 @@ def cost_operator(J, h):
     return SparsePauliOp.from_sparse_list(pauli_list, num_qubits=n)
 
 
-def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5):
+def build_circuit(J, h, reps, theta):
+    """Circuito QAOA (mismo ansatz que `run_qaoa`) con `theta` fijado y medidas.
+
+    Se usa para ejecutar en un `backend` real: se optimiza localmente con el
+    simulador rápido y se envía ESTE circuito una sola vez (un job por run).
+    """
+    from qiskit.circuit.library import QAOAAnsatz
+
+    M_cost = cost_operator(J, h)
+    ansatz = QAOAAnsatz(cost_operator=M_cost, reps=reps)
+    parameters = list(ansatz.parameters)
+    circuit = ansatz.assign_parameters(dict(zip(parameters, theta)))
+    circuit.measure_all()
+    return circuit
     """Corre QAOA (QAOAAnsatz + Statevector + COBYLA) y devuelve resultados.
 
     Réplica de `main.py`:

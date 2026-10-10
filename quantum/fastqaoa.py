@@ -100,13 +100,16 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, snapshots=None):
     snapshot_set = set(snapshots or [])
     snaps = []
     history = []
+    argmax_history = []
 
     def energy(theta):
         psi = _statevector(theta, reps, cost, n)
-        val = float(np.real(np.sum(np.abs(psi) ** 2 * cost)))
+        probs = np.abs(psi) ** 2
+        val = float(np.real(np.sum(probs * cost)))
         history.append(val)
+        argmax_history.append(int(np.argmax(probs)))
         if len(history) in snapshot_set:
-            snaps.append({"iter": len(history), "probabilities": np.abs(psi) ** 2})
+            snaps.append({"iter": len(history), "probabilities": probs})
         return val
 
     num_parameters = 2 * reps
@@ -125,6 +128,7 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, snapshots=None):
         "energy": float(result.fun),
         "theta": [float(t) for t in result.x],
         "history": [float(v) for v in history],
+        "argmax_history": argmax_history,
         "probabilities": [float(p) for p in probs],
         "snapshots": [
             {"iter": s["iter"], "probabilities": [float(p) for p in s["probabilities"]]}

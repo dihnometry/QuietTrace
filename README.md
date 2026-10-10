@@ -14,14 +14,20 @@ El **QAOA real** está integrado en el pipeline. Al abrir la página:
 2. **QAOA** — `quantum/fastqaoa.py` corre el QAOA (mismo ansatz que `main.py`) sobre el
    Ising `J,h` del modelo. El optimizador es COBYLA.
 3. **Respuesta + gráficas** — se elige la **mejor muestra factible** y se dibuja: tablero
-   *después*, desglose de costo, convergencia del optimizador, distribución de bitstrings y
-   comparación con el **óptimo exacto**.
-
-Además, el panel **Evolución de la solución (QAOA)** muestra un mini-PCB de las iteraciones
-**5, 10, 25 y la final**, para ver cómo cambia la asignación durante la optimización.
+   *después*, desglose de costo, convergencia del optimizador, distribución de bitstrings,
+   grafo de **qubits y acoplamientos**, explosión combinatoria **2ⁿ vs nº de líneas**,
+   comparación con el **óptimo exacto** y una **evolución por iteraciones** (mejor-hasta-ese-
+   momento + energía secuencial: 1, 2, 5, 10, 25, 50, 100, 150).
 
 Resultado verificado en el modelo de ejemplo: mejor solución = `001010010`, coste **7.049177**
 (igual al óptimo exacto, `gap ≈ 0`). Capas: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
+
+## Ejecutar en QPU
+
+Al correr en Qollab se elige el backend en **Select QPU**. El pipeline optimiza **localmente**
+y luego envía **un solo circuito** QAOA al backend elegido (regla de *un job por run* en IonQ),
+mostrando los conteos medidos y su factibilidad. En la vista local no hay backend, así que esa
+sección queda vacía.
 
 ## Arquitectura
 
@@ -45,15 +51,10 @@ El pipeline usa `fastqaoa.py` porque `QAOAAnsatz + Statevector` es ~1000× más 
 (~1.2 s por evaluación) e inviable en el navegador; `fastqaoa` reproduce el mismo resultado
 con NumPy puro.
 
-## Temas
+## Tema
 
-Conmutador arriba a la derecha:
-
-- **Hybrid** (por defecto) — colores y bordes nítidos de *OtherDev* + **glow** de Frutiger Aero
-  + **liquid glass** (cristal negro con bordes marcados).
-- **Frutiger Aero** — sci‑fi, degradado cielo→turquesa, cristal y glow.
-- **OtherDev** — minimalista monoespaciado, negro puro, verde neón
-  (homenaje a [an.otherdev.xyz](https://an.otherdev.xyz)).
+Tema único **Hybrid**: colores y bordes nítidos de *OtherDev* (negro puro + verde neón) +
+**glow** estilo Frutiger Aero + **liquid glass** (cristal negro con bordes marcados).
 
 ## Ver en local
 

@@ -442,6 +442,89 @@ function histogram({ title, items, w = 560, h = 330 }) {
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
 }
 
+function combosChart({ title, nMax = 30, w = 560, h = 330 }) {
+  const pad = { l: 66, r: 26, t: 30, b: 46 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const yLogMax = nMax * Math.log10(2);
+  const X = (n) => pad.l + ((n - 1) / (nMax - 1)) * iw;
+  const Y = (v) => pad.t + ih - (Math.log10(v) / yLogMax) * ih;
+  const fmtBig = (v) => (v >= 1e9 ? `${(v / 1e9).toFixed(1)}e9`
+    : v >= 1e6 ? `${(v / 1e6).toFixed(0)}M`
+    : v >= 1e3 ? `${(v / 1e3).toFixed(0)}k` : String(v));
+
+  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let e = 0; e <= 10; e++) {
+    const v = Math.pow(10, e);
+    if (v > Math.pow(2, nMax)) break;
+    const y = Y(v);
+    s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">1e${e}</text>`;
+  }
+  [1, 5, 9, 13, 18, 23, 27, 30].forEach((n) => {
+    if (n > nMax) return;
+    s += `<text x="${X(n).toFixed(1)}" y="${pad.t + ih + 18}" text-anchor="middle" font-size="11" fill="${COL.muted}">${n}</text>`;
+  });
+
+  let d = '';
+  for (let n = 1; n <= nMax; n++) {
+    d += `${n === 1 ? 'M' : 'L'} ${X(n).toFixed(1)},${Y(Math.pow(2, n)).toFixed(1)} `;
+  }
+  s += `<path class="chart-line" pathLength="1" d="${d}" fill="none" stroke="${COL.L1}" stroke-width="2.6" stroke-linecap="round"/>`;
+
+  [9, 18, 27].forEach((n) => {
+    if (n > nMax) return;
+    const v = Math.pow(2, n);
+    s += `<circle class="chart-dot" style="animation-delay:0.8s" cx="${X(n).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="4.5" fill="${COL.chartBg}" stroke="${COL.L4}" stroke-width="2.4"/>`;
+    s += `<text class="fade-late" style="animation-delay:0.9s" x="${(X(n) + 8).toFixed(1)}" y="${(Y(v) - 8).toFixed(1)}" font-size="11" font-weight="700" fill="${COL.L4}">2^${n} = ${fmtBig(v)}</text>`;
+  });
+
+  s += `<text x="${w / 2}" y="${h - 10}" text-anchor="middle" font-size="12" fill="${COL.muted}">nº de líneas (qubits)</text>`;
+  return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+}
+
+function qubitGraph({ title, nets, weights, conflicts, assignment, w = 560, h = 430 }) {
+  const n = nets.length;
+  const cx = w / 2, cy = h / 2 + 4;
+  const R = Math.min(w, h) / 2 - 74;
+  const pos = nets.map((_, i) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+  });
+  const maxW = Math.max(...weights.flat()) || 1;
+  const cset = new Set(conflicts.map(([a, b]) => `${nets.indexOf(a)}|${nets.indexOf(b)}`));
+
+  let s = `<rect x="8" y="8" width="${w - 16}" height="${h - 16}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const conflict = cset.has(`${i}|${j}`) || cset.has(`${j}|${i}`);
+      const wv = weights[i][j] / maxW;
+      if (!conflict && wv <= 0.002) continue;
+      const color = conflict ? COL.conflict : COL.muted;
+      const width = conflict ? 2 : 1 + 3.5 * wv;
+      const dash = conflict ? 'stroke-dasharray="4 3"' : '';
+      s += `<line x1="${pos[i][0].toFixed(1)}" y1="${pos[i][1].toFixed(1)}" x2="${pos[j][0].toFixed(1)}" y2="${pos[j][1].toFixed(1)}" stroke="${color}" stroke-width="${width.toFixed(1)}" opacity="${conflict ? 0.9 : 0.55}" ${dash}/>`;
+    }
+  }
+  nets.forEach((nn, i) => {
+    const layer = assignment ? assignment[i] : 0;
+    const color = layer === 0 ? COL.L1 : COL.L4;
+    const [x, y] = pos[i];
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="16" fill="${COL.board}" stroke="${color}" stroke-width="2.4"/>`;
+    s += `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${color}">${esc(nn)}</text>`;
+  });
+
+  s += `<circle cx="40" cy="${h - 22}" r="7" fill="${COL.board}" stroke="${COL.L1}" stroke-width="2"/>`;
+  s += `<text x="54" y="${h - 18}" font-size="11" fill="${COL.muted}">L1</text>`;
+  s += `<circle cx="104" cy="${h - 22}" r="7" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
+  s += `<text x="118" y="${h - 18}" font-size="11" fill="${COL.muted}">L4</text>`;
+  s += `<line x1="168" y1="${h - 22}" x2="196" y2="${h - 22}" stroke="${COL.muted}" stroke-width="2.5"/>`;
+  s += `<text x="204" y="${h - 18}" font-size="11" fill="${COL.muted}">acoplamiento</text>`;
+  s += `<line x1="322" y1="${h - 22}" x2="350" y2="${h - 22}" stroke="${COL.conflict}" stroke-width="2" stroke-dasharray="4 3"/>`;
+  s += `<text x="358" y="${h - 18}" font-size="11" fill="${COL.muted}">conflicto</text>`;
+
+  return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+}
+
 function miniBoard(model, maps, bits, label, sub) {
   const { nidx, rankIn, rankOut } = maps;
   const nN = model.nets.length;
@@ -552,7 +635,7 @@ export function render(model) {
     evo.innerHTML = (isReal && Array.isArray(model.solutions) && model.solutions.length)
       ? '<div class="evolution-grid">' + model.solutions.map((sol) =>
           miniBoard(model, maps, sol.x, `iter ${sol.iter}`,
-            `costo ${fmt(sol.cost)} · ${sol.violations} conflictos`)
+            `costo ${fmt(sol.cost)}${sol.energy != null ? ` · E ${fmt(sol.energy)}` : ''} · ${sol.violations} conflictos`)
         ).join('') + '</div>'
       : '';
   }
@@ -640,6 +723,18 @@ export function render(model) {
     charts.push(histogram({ title: 'Distribución QAOA · top bitstrings', items: model.distribution }));
   }
 
+  CHART_SOURCE = 'teórico';
+  charts.push(combosChart({ title: 'Combinaciones posibles (2ⁿ) vs nº de líneas', nMax: 30 }));
+
+  CHART_SOURCE = isReal ? 'modelo' : 'mock';
+  charts.push(qubitGraph({
+    title: `Qubits y acoplamientos (n = ${model.meta.n_nets})`,
+    nets: model.nets,
+    weights: model.weights,
+    conflicts: model.conflicts,
+    assignment: model.assignments.after,
+  }));
+
   CHART_SOURCE = isReal ? 'geométrica' : 'mock';
   charts.push(heatmap({
     title: isReal ? 'Matriz de acoplamiento W (geométrica)' : 'Matriz de acoplamiento (mock)',
@@ -650,4 +745,61 @@ export function render(model) {
 
   CHART_SOURCE = '';
   document.getElementById('charts').innerHTML = charts.join('');
+}
+
+// Resultado de una ejecución en el backend (QPU o simulador) elegido en Qollab.
+export function renderBackend(q, model) {
+  const el = document.getElementById('qpu');
+  if (!el) return;
+  if (!q || !q.counts) { el.innerHTML = ''; return; }
+
+  const n = model.nets.length;
+  const idxOf = Object.fromEntries(model.nets.map((x, i) => [x, i]));
+  const decode = (key) => {
+    const x = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) x[i] = Number(key[n - 1 - i] ?? '0');
+    return x;
+  };
+  const viol = (x) => model.conflicts.reduce((a, [A, B]) => a + (x[idxOf[A]] === x[idxOf[B]] ? 1 : 0), 0);
+
+  const entries = Object.entries(q.counts).map(([key, count]) => ({ key, count, feasible: viol(decode(key)) === 0 }));
+  entries.sort((a, b) => b.count - a.count);
+  const items = entries.slice(0, 16);
+  const total = q.shots || entries.reduce((a, e) => a + e.count, 0);
+  const feas = entries.filter((e) => e.feasible).reduce((a, e) => a + e.count, 0);
+
+  const w = 560, h = 330, pad = { l: 56, r: 18, t: 30, b: 82 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const maxC = Math.max(...items.map((e) => e.count)) || 1;
+  const bw = iw / items.length;
+
+  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let g = 0; g <= 4; g++) {
+    const yv = maxC * g / 4;
+    const y = pad.t + ih - (yv / maxC) * ih;
+    s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${Math.round(yv)}</text>`;
+  }
+  items.forEach((e, i) => {
+    const bh = Math.max((e.count / maxC) * ih, e.count > 0 ? 2 : 0);
+    const x = pad.l + i * bw + bw * 0.16;
+    const width = bw * 0.68;
+    const y = pad.t + ih - bh;
+    const color = e.feasible ? COL.L1 : COL.conflict;
+    const cx = (x + width / 2).toFixed(1);
+    s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(e.key)} · ${e.count} shots · ${e.feasible ? 'factible' : 'NO factible'}</title></rect>`;
+    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="9" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(e.key)}</text>`;
+  });
+  s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="11" fill="${COL.muted}">factible</text>`;
+  s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
+  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="11" fill="${COL.muted}">viola conflicto</text>`;
+
+  const feasiblePct = total ? (feas / total) * 100 : 0;
+  const title = `Resultado en QPU · ${q.backend_name || 'backend'} · ${q.shots || total} shots · factibilidad ${fmt(feasiblePct, 1)}%`;
+
+  const saved = CHART_SOURCE;
+  CHART_SOURCE = 'QPU';
+  el.innerHTML = chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+  CHART_SOURCE = saved;
 }

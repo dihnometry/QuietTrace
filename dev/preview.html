@@ -12,17 +12,19 @@
       1. carga el index.html real e inyecta su <body>,
       2. usa el mismo motor `engine.js`,
       3. alimenta el modelo desde `dev/model.json` (regenerar con
-         `scripts/export-model.sh`, que llama a quantum/pcb.py).
+         `scripts/export-model.sh`).
+    Sin caché (?v=timestamp) para que los cambios se vean al recargar.
     No forma parte del proyecto que se sube a Qollab.
   -->
   <script type="module">
-    const res = await fetch('../index.html');
+    const V = Date.now();
+    const res = await fetch(`../index.html?v=${V}`);
     const html = await res.text();
     const body = /<body[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] ?? html;
     document.body.innerHTML = body;
 
-    const { render } = await import('../engine.js');
-    const model = await (await fetch('./model.json')).json();
+    const { render } = await import(`../engine.js?v=${V}`);
+    const model = await (await fetch(`./model.json?v=${V}`)).json();
     render(model);
 
     const badge = document.createElement('div');
