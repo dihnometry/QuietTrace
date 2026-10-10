@@ -39,6 +39,28 @@ function scheduleProblem(immediate) {
   else problemTimer = setTimeout(refreshProblem, 350);
 }
 
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function randomOrder() {
+  let nets;
+  try {
+    if (MODEL && MODEL.nets && MODEL.nets.length) nets = MODEL.nets.slice();
+    else {
+      const p = (await pipeline.get_problem.callPromising(currentKind, null)).toJs();
+      nets = p.nets.slice();
+    }
+  } catch (e) { console.error(e); setStatus(`Error: ${e}`); return; }
+  const el = orderEl();
+  if (el) el.value = shuffle(nets).join(',');
+  scheduleProblem(true);
+}
+
 const shotsEl = () => document.getElementById('shots-num') || document.getElementById('shots-range');
 const readShots = () => clamp(shotsEl() ? shotsEl().value : 1024, 0, 2000, 1024);
 
@@ -134,6 +156,8 @@ problemTabs.forEach((b) => {
   if (el) { el.oninput = () => scheduleProblem(false); el.onchange = () => scheduleProblem(true); }
   const reset = document.getElementById('order-reset');
   if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; scheduleProblem(true); };
+  const rnd = document.getElementById('random');
+  if (rnd) rnd.onclick = randomOrder;
   const run = document.getElementById('run');
   if (run) run.onclick = async () => {
     try { await runPipeline(); await resample(); }
@@ -258,6 +282,8 @@ function applyConnections() {
   const ap = document.getElementById('conn-apply'); if (ap) ap.onclick = applyConnections;
   const rs = document.getElementById('conn-reset');
   if (rs) rs.onclick = () => { connOrder = connNets.slice(); renderConnList(); renderConnPreview(); };
+  const rd = document.getElementById('conn-random');
+  if (rd) rd.onclick = () => { connOrder = shuffle(connNets.slice()); renderConnList(); renderConnPreview(); };
   const modal = document.getElementById('conn-modal');
   if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeConnections(); });
   document.addEventListener('keydown', (e) => {

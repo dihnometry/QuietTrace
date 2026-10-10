@@ -19,6 +19,7 @@
     <input id="order" class="order-input" type="text" spellcheck="false" autocomplete="off"
            placeholder="e.g. D2,D4,D0,D1,D3,D5,D7,D6,CLK" aria-label="FPGA input order" />
     <button id="connections" class="tg" type="button">Connections…</button>
+    <button id="random" class="tg" type="button">Random</button>
     <button id="order-reset" class="tg" type="button">reset</button>
     <span id="order-status" class="view-label order-status"></span>
     <button id="run" class="run-btn" type="button">▶ Run</button>
@@ -109,6 +110,7 @@
       <div class="conn-preview" id="conn-preview"></div>
     </div>
     <div class="conn-foot">
+      <button class="tg" id="conn-random" type="button">Random</button>
       <button class="tg" id="conn-reset" type="button">Reset</button>
       <span class="conn-hint" id="conn-hint"></span>
       <span class="conn-spacer"></span>
