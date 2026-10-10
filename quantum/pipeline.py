@@ -257,10 +257,26 @@ def resample_ideal(shots=1024, seed=None):
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
+    p = probs / probs.sum()
+
+    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                             prob["conflicts"], prob["M"])[1]]
+    opt = _index_from_bits(optimal)
+    mask = _feasible_mask(n, prob["conflicts"])
+
+    shots = max(0, int(shots))
+    if shots < 1:
+        return {
+            "distribution": [], "distribution_source": "sampled", "shots": 0,
+            "found_optimal": False, "tvd": 0.5,
+            "success_ideal": round(float(p[opt]), 6), "success_backend": 0.0,
+            "valid_ideal": round(float(p[mask].sum()), 6), "valid_backend": 0.0,
+            "best": None, "costs_after": None,
+            "assignments_after": [], "assignments_after_layers": {},
+        }
 
     rng = np.random.default_rng(seed)
-    p = probs / probs.sum()
-    draws = rng.choice(len(p), size=int(shots), p=p)
+    draws = rng.choice(len(p), size=shots, p=p)
 
     # conteos con la misma convencion de clave que Qiskit (MSB = qubit n-1)
     counts = {}
@@ -273,16 +289,11 @@ def resample_ideal(shots=1024, seed=None):
     Q = np.zeros(1 << n, dtype=float)
     for k in draws:
         Q[int(k)] += 1.0
-    Q /= max(1, len(draws))
-
-    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
-                                             prob["conflicts"], prob["M"])[1]]
-    opt = _index_from_bits(optimal)
-    mask = _feasible_mask(n, prob["conflicts"])
+    Q /= shots
 
     derived.update({
         "distribution_source": "sampled",
-        "shots": int(shots),
+        "shots": shots,
         "found_optimal": bool(Q[opt] > 0),
         "tvd": round(float(0.5 * np.sum(np.abs(p - Q))), 6),
         "success_ideal": round(float(p[opt]), 6),

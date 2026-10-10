@@ -1060,6 +1060,7 @@
     }
   ],
   "distribution_source": "ideal",
+  "success_ideal": 0.04339,
   "solutions": [
     {
       "iter": 1,
@@ -1190,7 +1191,6 @@
       "violations": 0
     }
   ],
-  "expected_cost": 13.396754,
   "measured_energy": -17.941086,
   "valid_mass": 0.591336
 }

@@ -51,7 +51,8 @@
 <section class="panel">
   <div class="toolbar">
     <span class="view-label">Local sampling (ideal, simulated — no QPU job)</span>
-    <input id="shots" type="range" min="1" max="2000" step="1" value="1024" />
+    <input id="shots-range" class="shots-range" type="range" min="0" max="2000" step="1" value="1024" />
+    <input id="shots-num" class="shots-num" type="number" min="0" max="2000" step="1" value="1024" aria-label="Number of shots" />
     <span id="shots-val" class="view-label">1024 shots</span>
   </div>
   <div id="sampling"></div>
@@ -68,3 +69,13 @@
   <span>ADC08060 · FPGA · 40 MSPS · stackup L1/L2/L3/L4</span>
   <span>quantum layer assignment · QAOA</span>
 </footer>
+
+<div id="chart-modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title"></span>
+      <button class="modal-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body"></div>
+  </div>
+</div>

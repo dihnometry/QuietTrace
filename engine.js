@@ -257,7 +257,26 @@ function chartCard(title, inner) {
   const badge = CHART_SOURCE
     ? `<span class="chart-src${CHART_SOURCE === 'mock' ? ' mock' : ''}">${esc(CHART_SOURCE)}</span>`
     : '';
-  return `<div class="chart" style="animation-delay:${dly}s"><h3>${esc(title)} ${badge}</h3>${inner}</div>`;
+  return `<div class="chart" style="animation-delay:${dly}s"><h3><span class="chart-title">${esc(title)}</span> ${badge}<button class="chart-expand" type="button" title="Expand" aria-label="Expand chart">⤢</button></h3>${inner}</div>`;
+}
+
+function openChartModal(card) {
+  const modal = document.getElementById('chart-modal');
+  if (!modal || !card) return;
+  const t = card.querySelector('.chart-title');
+  const svg = card.querySelector('svg');
+  modal.querySelector('.modal-title').textContent = t ? t.textContent : '';
+  modal.querySelector('.modal-body').innerHTML = svg ? svg.outerHTML : '';
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeChartModal() {
+  const modal = document.getElementById('chart-modal');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  modal.querySelector('.modal-body').innerHTML = '';
 }
 
 function energyChart({ title, xs, ys, mark, w = 560, h = 300 }) {
@@ -713,21 +732,47 @@ export function render(model) {
       document.querySelectorAll('.combos-toggle .tg').forEach((x) => x.classList.toggle('active', x === btn));
     };
   });
+
+  // expand a chart into a modal
+  document.querySelectorAll('.chart-expand').forEach((btn) => {
+    btn.onclick = () => openChartModal(btn.closest('.chart'));
+  });
+  const modal = document.getElementById('chart-modal');
+  if (modal && !modal.dataset.wired) {
+    modal.dataset.wired = '1';
+    modal.querySelector('.modal-close').onclick = closeChartModal;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeChartModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChartModal(); });
+  }
 }
 
 // Local ideal-sampling result (no QPU job).
-export function renderSampling(res) {
+export function renderSampling(res, model) {
   const el = document.getElementById('sampling');
   if (!el) return;
   if (!res) { el.innerHTML = ''; return; }
   const pct = (v) => (v == null ? '—' : `${fmt(v * 100, 1)}%`);
   const found = res.found_optimal ? 'yes' : 'NO';
   const color = res.found_optimal ? COL.L1 : COL.conflict;
+  const cost = res.best && res.best.cost != null ? fmt(res.best.cost) : '—';
+
+  let pcb = '';
+  if (model && res.best && Array.isArray(res.best.x) && res.best.x.length === model.nets.length) {
+    const maps = {
+      nidx: Object.fromEntries(model.nets.map((n, i) => [n, i])),
+      rankIn: Object.fromEntries(model.in_order.map((n, i) => [n, i])),
+      rankOut: Object.fromEntries(model.out_order.map((n, i) => [n, i])),
+    };
+    pcb = `<div class="sampling-pcb">${miniBoard(model, maps, res.best.x,
+      `sampled · ${res.shots} shots`, `cost ${cost} · ${res.best.violations ? 'invalid' : 'valid'}`)}</div>`;
+  }
+
   el.innerHTML = `
     <p class="qpu-line"><strong>${res.shots}</strong> shots · optimal found:
-      <strong style="color:${color}">${found}</strong> · TVD ${fmt(res.tvd, 3)} · best feasible cost ${fmt(res.best.cost)}</p>
+      <strong style="color:${color}">${found}</strong> · TVD ${fmt(res.tvd, 3)} · best feasible cost ${cost}</p>
     <p class="note">success ${pct(res.success_ideal)} → ${pct(res.success_backend)}
-      · valid ${pct(res.valid_ideal)} → ${pct(res.valid_backend)} (ideal → sampled)</p>`;
+      · valid ${pct(res.valid_ideal)} → ${pct(res.valid_backend)} (ideal → sampled)</p>
+    ${pcb}`;
 }
 
 // Result of a run on the backend selected in Qollab (QPU or simulator).

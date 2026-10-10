@@ -58,19 +58,30 @@ try {
   }
 
   // Local sampling control (ideal resample; no QPU job).
-  const shotsEl = document.getElementById('shots');
+  const rangeEl = document.getElementById('shots-range');
+  const numEl = document.getElementById('shots-num');
   const shotsVal = document.getElementById('shots-val');
-  if (shotsEl) {
-    const runSample = async () => {
-      const s = Math.max(1, Number(shotsEl.value));
-      if (shotsVal) shotsVal.textContent = `${s} shots`;
+  if (rangeEl || numEl) {
+    const clamp = (v) => Math.max(0, Math.min(2000, Math.round(Number(v) || 0)));
+    let timer = null;
+    const runSample = async (s) => {
       try {
         const r = (await pipeline.resample_ideal.callPromising(s)).toJs();
-        renderSampling(r);
+        renderSampling(r, model);
       } catch (e) { console.error(e); }
     };
-    shotsEl.oninput = runSample;
-    await runSample();
+    const apply = (v, immediate) => {
+      const s = clamp(v);
+      if (rangeEl) rangeEl.value = String(s);
+      if (numEl) numEl.value = String(s);
+      if (shotsVal) shotsVal.textContent = `${s} shots`;
+      clearTimeout(timer);
+      if (immediate) runSample(s);
+      else timer = setTimeout(() => runSample(s), 180);
+    };
+    if (rangeEl) rangeEl.oninput = () => apply(rangeEl.value);
+    if (numEl) numEl.onchange = () => apply(numEl.value, true);
+    await apply(rangeEl ? rangeEl.value : 1024, true);
   }
 } catch (err) {
   setStatus(`Pipeline error: ${err}`);

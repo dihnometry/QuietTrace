@@ -26,8 +26,10 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
   iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend
-  result. A **Local sampling** slider resamples the ideal distribution to show how the shot
-  count changes the metrics (at few shots it may miss the optimum) — it runs no QPU job.
+  result. A **Local sampling** panel (slider + exact number input, 0–2000 shots) resamples the
+  ideal distribution and draws the **sampled PCB**, so you can compare it with the main one
+  (at few shots it may miss the optimum) — it runs no QPU job.
+- Each chart has an **expand (⤢)** button that opens it larger in a modal.
 - **When a backend exists**, the local view is not painted until the job returns. Then the
   charts use that backend's counts: *Circuit distribution* shows **ideal vs backend**, and
   *Cost breakdown* (after) + the after-board come from the backend. The optimization trace
