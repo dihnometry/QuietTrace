@@ -31,17 +31,40 @@ def cost_operator(J, h):
 
 
 def build_circuit(J, h, reps, theta):
-    """Circuito QAOA (mismo ansatz que `run_qaoa`) con `theta` fijado y medidas.
+    """Circuito QAOA con ANGULOS NUMERICOS (sin parametros libres).
 
-    Se usa para ejecutar en un `backend` real: se optimiza localmente con el
-    simulador rápido y se envía ESTE circuito una sola vez (un job por run).
+    Evita `QAOAAnsatz`/`PauliEvolutionGate` a proposito: su `to_matrix()` falla si
+    queda un parametro sin enlazar (p. ej. "Cannot compute matrix with non-numeric
+    parameter: gamma[0]") y no hace falta, porque `theta` ya viene optimizado.
+
+    Mismas convenciones que el ansatz (orden de `theta`: primero betas, luego gammas):
+        e^{-i g H_C} -> RZZ(2 g J_ij) y RZ(2 g h_i);  mezclador -> RX(2 b).
     """
-    from qiskit.circuit.library import QAOAAnsatz
+    import numpy as np
+    from qiskit import QuantumCircuit
 
-    M_cost = cost_operator(J, h)
-    ansatz = QAOAAnsatz(cost_operator=M_cost, reps=reps)
-    parameters = list(ansatz.parameters)
-    circuit = ansatz.assign_parameters(dict(zip(parameters, theta)))
+    J = np.asarray(J, dtype=float)
+    h = np.asarray(h, dtype=float)
+    n = len(h)
+    betas = theta[:reps]
+    gammas = theta[reps:]
+
+    circuit = QuantumCircuit(n)
+    circuit.h(range(n))
+    for layer in range(reps):
+        for i in range(n):
+            for j in range(i + 1, n):
+                angle = 2 * gammas[layer] * J[i][j]
+                if abs(angle) > 1e-12:
+                    circuit.rzz(angle, i, j)
+        for i in range(n):
+            angle = 2 * gammas[layer] * h[i]
+            if abs(angle) > 1e-12:
+                circuit.rz(angle, i)
+        for i in range(n):
+            angle = 2 * betas[layer]
+            if abs(angle) > 1e-12:
+                circuit.rx(angle, i)
     circuit.measure_all()
     return circuit
     """Corre QAOA (QAOAAnsatz + Statevector + COBYLA) y devuelve resultados.

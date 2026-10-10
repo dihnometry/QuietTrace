@@ -102,9 +102,15 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
     from . import qaoa as ref  # quantum/qaoa.py (reference, uses Qiskit)
 
     circuit = ref.build_circuit(prob["J"], prob["h"], reps, qa["theta"])
-    # Transpile to the backend gate set: local simulators reject an untranspiled
-    # PauliEvolutionGate.
-    tcirc = transpile(circuit, backend=backend, optimization_level=1)
+
+    # Transpile for local simulators (their basis). IonQ is left as written:
+    # its own pipeline converts to native gates with valid angles, whereas
+    # transpiling for IonQ can produce gates with non-positive times.
+    is_ionq = type(backend).__module__.startswith("qiskit_ionq")
+    if is_ionq:
+        tcirc = circuit
+    else:
+        tcirc = transpile(circuit, backend=backend, optimization_level=1)
 
     job = backend.run(tcirc, shots=shots)
     counts = job.result().get_counts()
