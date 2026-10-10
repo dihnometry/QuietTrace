@@ -5,7 +5,7 @@
 // circuit is sent and the charts use that backend's counts.
 
 import * as pipeline from 'quantum.pipeline'; // Pyodide in Qollab; shim locally
-import { render, renderBackend, renderSampling, routingPreview } from './engine.js';
+import { render, renderBackend, routingPreview } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
@@ -56,9 +56,6 @@ async function randomOrder() {
   } catch (e) { console.error(e); setStatus(`Error: ${e}`); }
 }
 
-const shotsEl = () => document.getElementById('shots-num') || document.getElementById('shots-range');
-const readShots = () => clamp(shotsEl() ? shotsEl().value : 1024, 0, 2000, 1024);
-
 const orderEl = () => document.getElementById('order');
 const currentOrder = () => {
   const el = orderEl();
@@ -92,7 +89,7 @@ async function runPipeline() {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(
-        backend, readShots(), 3, 150, currentKind, null, currentOrder())).toJs();
+        backend, 1024, 3, 150, currentKind, null, currentOrder())).toJs();
       const over = q.derived;
       model.ideal_distribution = model.distribution;
       model.distribution = over.distribution;
@@ -124,14 +121,6 @@ async function runPipeline() {
   return model;
 }
 
-async function resample() {
-  if (!MODEL) return;
-  try {
-    const r = (await pipeline.resample_ideal.callPromising(readShots(), null, currentKind, null, currentOrder())).toJs();
-    renderSampling(r, MODEL);
-  } catch (e) { console.error(e); }
-}
-
 // --- controls ---------------------------------------------------------------
 
 const problemTabs = Array.from(document.querySelectorAll('.problem-tab'));
@@ -155,25 +144,10 @@ problemTabs.forEach((b) => {
   if (rnd) rnd.onclick = randomOrder;
   const run = document.getElementById('run');
   if (run) run.onclick = async () => {
-    try { await runPipeline(); await resample(); }
+    try { await runPipeline(); }
     catch (e) { console.error(e); setStatus(`Error: ${e}`); }
   };
 }
-
-const shotsRange = document.getElementById('shots-range');
-const shotsNum = document.getElementById('shots-num');
-const shotsVal = document.getElementById('shots-val');
-let shotsTimer = null;
-function setShots(v, immediate) {
-  const s = clamp(v, 0, 2000, 1024);
-  if (shotsRange) shotsRange.value = String(s);
-  if (shotsNum) shotsNum.value = String(s);
-  if (shotsVal) shotsVal.textContent = `${s} shots`;
-  clearTimeout(shotsTimer);
-  if (immediate) resample(); else shotsTimer = setTimeout(resample, 180);
-}
-if (shotsRange) shotsRange.oninput = () => setShots(shotsRange.value);
-if (shotsNum) shotsNum.onchange = () => setShots(shotsNum.value, true);
 
 // --- connections editor -----------------------------------------------------
 
@@ -299,6 +273,5 @@ function applyConnections() {
 
 (async () => {
   problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
-  if (shotsVal) shotsVal.textContent = `${readShots()} shots`;
   setStatus('Choose the problem and connections, then press ▶ Run.');
 })();

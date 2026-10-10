@@ -31,9 +31,7 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
   iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend
-  result. A **Local sampling** panel (slider + exact number input, 0–2000 shots) resamples the
-  ideal distribution and draws the **sampled PCB**, so you can compare it with the main one
-  (at few shots it may miss the optimum) — it runs no QPU job.
+  result.
 - Each chart has an **expand (⤢)** button that opens it larger in a modal.
 - **When a backend exists**, the local view is not painted until the job returns. Then the
   charts use that backend's counts: *Circuit distribution* shows **ideal vs backend**, and
@@ -87,7 +85,7 @@ PYTHON=/path/to/python/with/qiskit ./scripts/dev.sh   # http://localhost:8000/de
 ```
 
 Option (2) serves the **real** UI (`main.js`) with a shim that calls `quantum/pipeline.py` over
-HTTP — so the problem tabs, the connection order and the shots slider all work locally without
+HTTP — so the problem tabs and the connection order all work locally without
 Qollab/Pyodide. It needs a Python with `qiskit`, `numpy`, `scipy`.
 ./scripts/package.sh                                           # -> /tmp/quiettrace-qollab.zip
 ```

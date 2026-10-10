@@ -885,35 +885,6 @@ function wireChartInteractions() {
   }
 }
 
-// Local ideal-sampling result (no QPU job).
-export function renderSampling(res, model) {
-  const el = document.getElementById('sampling');
-  if (!el) return;
-  if (!res) { el.innerHTML = ''; return; }
-  const pct = (v) => (v == null ? '—' : `${fmt(v * 100, 1)}%`);
-  const found = res.found_optimal ? 'yes' : 'NO';
-  const color = res.found_optimal ? COL.L1 : COL.conflict;
-  const cost = res.best && res.best.cost != null ? fmt(res.best.cost) : '—';
-
-  let pcb = '';
-  if (model && res.best && Array.isArray(res.best.x) && res.best.x.length === model.nets.length) {
-    const maps = {
-      nidx: Object.fromEntries(model.nets.map((n, i) => [n, i])),
-      rankIn: Object.fromEntries(model.in_order.map((n, i) => [n, i])),
-      rankOut: Object.fromEntries(model.out_order.map((n, i) => [n, i])),
-    };
-    pcb = `<div class="sampling-pcb">${miniBoard(model, maps, res.best.x,
-      `sampled · ${res.shots} shots`, `cost ${cost} · ${res.best.violations ? 'invalid' : 'valid'}`)}</div>`;
-  }
-
-  el.innerHTML = `
-    <p class="qpu-line"><strong>${res.shots}</strong> shots · optimal found:
-      <strong style="color:${color}">${found}</strong> · TVD ${fmt(res.tvd, 3)} · best feasible cost ${cost}</p>
-    <p class="note">success ${pct(res.success_ideal)} → ${pct(res.success_backend)}
-      · valid ${pct(res.valid_ideal)} → ${pct(res.valid_backend)} (ideal → sampled)</p>
-    ${pcb}`;
-}
-
 // Result of a run on the backend selected in Qollab (QPU or simulator).
 export function renderBackend(q, model) {
   const el = document.getElementById('qpu');

@@ -64,21 +64,6 @@
   </p>
 </section>
 
-<section class="panel">
-  <div class="toolbar">
-    <span class="view-label">Local sampling (ideal, simulated — no QPU job)</span>
-    <input id="shots-range" class="shots-range" type="range" min="0" max="2000" step="1" value="1024" />
-    <input id="shots-num" class="shots-num" type="number" min="0" max="2000" step="1" value="1024" aria-label="Number of shots" />
-    <span id="shots-val" class="view-label">1024 shots</span>
-  </div>
-  <div id="sampling"></div>
-  <p class="note">
-    Resamples the <strong>ideal</strong> distribution locally with the chosen number of
-    shots, to see how sampling affects the metrics and whether the optimum is still found.
-    It does not run or spend anything on the backend.
-  </p>
-</section>
-
 <section class="grid" id="charts" aria-label="charts"></section>
 
 <footer class="foot">
