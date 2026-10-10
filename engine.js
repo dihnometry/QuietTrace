@@ -107,11 +107,11 @@ function boardSvg(model, maps, assignment, title) {
   let s = '';
   s += `<rect x="16" y="16" width="868" height="360" rx="12" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
   s += `<rect class="fade-late" x="40" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text class="fade-late" x="90" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">ADC08060</text>`;
-  s += `<text class="fade-late" x="90" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
+  s += `<text class="fade-late" x="90" y="215" text-anchor="middle" font-size="17" fill="${COL.text}">ADC08060</text>`;
+  s += `<text class="fade-late" x="90" y="234" text-anchor="middle" font-size="13" fill="${COL.muted}">8 bits · 40 MSPS</text>`;
   s += `<rect class="fade-late" x="760" y="120" width="100" height="200" rx="8" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text class="fade-late" x="810" y="215" text-anchor="middle" font-size="14" fill="${COL.text}">FPGA</text>`;
-  s += `<text class="fade-late" x="810" y="234" text-anchor="middle" font-size="10" fill="${COL.muted}">receiver</text>`;
+  s += `<text class="fade-late" x="810" y="215" text-anchor="middle" font-size="17" fill="${COL.text}">FPGA</text>`;
+  s += `<text class="fade-late" x="810" y="234" text-anchor="middle" font-size="13" fill="${COL.muted}">receiver</text>`;
 
   model.nets.forEach((n, i) => {
     const layer = assignment[nidx[n]];
@@ -122,7 +122,7 @@ function boardSvg(model, maps, assignment, title) {
     if (layer === 1) {
       pts.forEach(([x, y]) => { s += `<circle class="fade-late" style="animation-delay:${lateDelay(i)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`; });
     }
-    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(pts[0][0] - 8).toFixed(1)}" y="${(pts[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(pts[0][0] - 8).toFixed(1)}" y="${(pts[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${color}">${n}</text>`;
   });
 
   const alive = model.conflicts.filter(([a, b]) => assignment[nidx[a]] === assignment[nidx[b]]);
@@ -132,21 +132,21 @@ function boardSvg(model, maps, assignment, title) {
     const p = polyInter(pa, pb);
     if (p) {
       s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="12" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
-      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="15" fill="${COL.conflict}">✕</text>`;
+      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="17" fill="${COL.conflict}">✕</text>`;
     }
   });
 
   const ly = 430;
   s += `<line x1="40" y1="${ly}" x2="70" y2="${ly}" stroke="${COL.L1}" stroke-width="3.5"/>`;
-  s += `<text x="78" y="${ly + 4}" font-size="12" fill="${COL.muted}">L1</text>`;
+  s += `<text x="78" y="${ly + 4}" font-size="14" fill="${COL.muted}">L1</text>`;
   s += `<line x1="118" y1="${ly}" x2="148" y2="${ly}" stroke="${COL.L4}" stroke-width="3.5" stroke-dasharray="7 5"/>`;
-  s += `<text x="156" y="${ly + 4}" font-size="12" fill="${COL.muted}">L4 (hidden)</text>`;
+  s += `<text x="156" y="${ly + 4}" font-size="14" fill="${COL.muted}">L4 (hidden)</text>`;
   s += `<circle cx="250" cy="${ly}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`;
-  s += `<text x="262" y="${ly + 4}" font-size="12" fill="${COL.muted}">via</text>`;
+  s += `<text x="262" y="${ly + 4}" font-size="14" fill="${COL.muted}">via</text>`;
   s += `<circle cx="322" cy="${ly}" r="9" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
-  s += `<text x="338" y="${ly + 4}" font-size="12" fill="${COL.muted}">conflict</text>`;
+  s += `<text x="338" y="${ly + 4}" font-size="14" fill="${COL.muted}">conflict</text>`;
 
-  s += `<text x="${W / 2}" y="410" text-anchor="middle" font-size="14" fill="${COL.text}">${esc(title)}</text>`;
+  s += `<text x="${W / 2}" y="410" text-anchor="middle" font-size="17" fill="${COL.text}">${esc(title)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg>`;
 }
 
@@ -177,7 +177,7 @@ function board3d(model, maps, assignment, title) {
     s += `<polygon points="${pts([B, C, Cb, Bb])}" fill="${shade(fill, -0.48)}" stroke="${stroke}" stroke-width="1"/>`;
     s += `<polygon points="${pts([A, B, C, D])}" fill="${fill}" stroke="${stroke}" stroke-width="1.2" opacity="0.5"/>`;
     const lp = P(4, LZ - 5, h);
-    s += `<text x="${lp[0].toFixed(1)}" y="${lp[1].toFixed(1)}" font-size="12" fill="${stroke}">${label}</text>`;
+    s += `<text x="${lp[0].toFixed(1)}" y="${lp[1].toFixed(1)}" font-size="14" fill="${stroke}">${label}</text>`;
   };
 
   const trace = (n, layer) => {
@@ -186,7 +186,7 @@ function board3d(model, maps, assignment, title) {
     const rp = route3(n, h);
     const dly = traceDelay(traceIdx++);
     s += `<polyline class="trace${layer === 'L4' ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${pts(rp)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95"/>`;
-    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(rp[0][0] - 6).toFixed(1)}" y="${(rp[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${color}">${n}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(rp[0][0] - 6).toFixed(1)}" y="${(rp[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${color}">${n}</text>`;
   };
 
   const byLayer = { L1: [], L4: [] };
@@ -206,8 +206,8 @@ function board3d(model, maps, assignment, title) {
     s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([B, C, Ct, Bt])}" fill="${COL.blockSideDark}" stroke="${COL.blockEdge}" stroke-width="1"/>`;
     s += `<polygon class="fade-late" style="animation-delay:0.5s" points="${pts([At, Bt, Ct, Dt])}" fill="${COL.block}" stroke="${COL.blockEdge}" stroke-width="1.2"/>`;
     const c = P((x0 + x1) / 2, (z0 + z1) / 2, h - ht);
-    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.text}">${label}</text>`;
-    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] + 11).toFixed(1)}" text-anchor="middle" font-size="10" fill="${COL.muted}">${sub}</text>`;
+    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] - 3).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.text}">${label}</text>`;
+    s += `<text class="fade-late" style="animation-delay:0.5s" x="${c[0].toFixed(1)}" y="${(c[1] + 11).toFixed(1)}" text-anchor="middle" font-size="13" fill="${COL.muted}">${sub}</text>`;
   };
   box(0, 14, 12, 36, LAYER_H.L1, 12, 'ADC08060', '8 bits · 40 MSPS');
   box(106, 120, 12, 36, LAYER_H.L1, 12, 'FPGA', 'receiver');
@@ -229,24 +229,24 @@ function board3d(model, maps, assignment, title) {
     const p = polyInter(route3(a, LAYER_H[layer]), route3(b, LAYER_H[layer]));
     if (p) {
       s += `<circle class="pop-late" style="animation-delay:1s" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="${COL.conflict}" fill-opacity="0.18" stroke="${COL.conflict}" stroke-width="2"/>`;
-      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.conflict}">✕</text>`;
+      s += `<text class="pop-late" style="animation-delay:1s" x="${p[0].toFixed(1)}" y="${(p[1] + 5).toFixed(1)}" text-anchor="middle" font-size="17" fill="${COL.conflict}">✕</text>`;
     }
   });
 
   const ly = 578;
   s += `<line x1="40" y1="${ly}" x2="70" y2="${ly}" stroke="${COL.L1}" stroke-width="3.5"/>`;
-  s += `<text x="78" y="${ly + 4}" font-size="12" fill="${COL.muted}">L1 (signals)</text>`;
+  s += `<text x="78" y="${ly + 4}" font-size="14" fill="${COL.muted}">L1 (signals)</text>`;
   s += `<line x1="182" y1="${ly}" x2="212" y2="${ly}" stroke="${COL.L4}" stroke-width="3.5" stroke-dasharray="6 4"/>`;
-  s += `<text x="220" y="${ly + 4}" font-size="12" fill="${COL.muted}">L4 (signals)</text>`;
+  s += `<text x="220" y="${ly + 4}" font-size="14" fill="${COL.muted}">L4 (signals)</text>`;
   s += `<line x1="324" y1="${ly}" x2="354" y2="${ly}" stroke="${COL.muted}" stroke-width="3.5"/>`;
-  s += `<text x="362" y="${ly + 4}" font-size="12" fill="${COL.muted}">L2/L3 (GND)</text>`;
+  s += `<text x="362" y="${ly + 4}" font-size="14" fill="${COL.muted}">L2/L3 (GND)</text>`;
   s += `<line x1="486" y1="${ly - 8}" x2="486" y2="${ly + 8}" stroke="${COL.L4}" stroke-width="2"/>`;
   s += `<circle cx="486" cy="${ly}" r="4" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2"/>`;
-  s += `<text x="498" y="${ly + 4}" font-size="12" fill="${COL.muted}">via L1↔L4</text>`;
+  s += `<text x="498" y="${ly + 4}" font-size="14" fill="${COL.muted}">via L1↔L4</text>`;
   s += `<circle cx="622" cy="${ly}" r="9" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
-  s += `<text x="638" y="${ly + 4}" font-size="12" fill="${COL.muted}">conflict</text>`;
+  s += `<text x="638" y="${ly + 4}" font-size="14" fill="${COL.muted}">conflict</text>`;
 
-  s += `<text x="${W / 2}" y="606" text-anchor="middle" font-size="14" fill="${COL.text}">${esc(title)}</text>`;
+  s += `<text x="${W / 2}" y="606" text-anchor="middle" font-size="17" fill="${COL.text}">${esc(title)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg>`;
 }
 
@@ -276,12 +276,12 @@ function energyChart({ title, xs, ys, w = 560, h = 300 }) {
     const yv = yMin + (yMax - yMin) * (g / 4);
     const y = Y(yv);
     s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
-    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${fmt(yv, 1)}</text>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmt(yv, 1)}</text>`;
   }
   const step = Math.max(1, Math.round(xs.length / 6));
   xs.forEach((xv, i) => {
     if (i % step === 0 || i === xs.length - 1) {
-      s += `<text x="${X(i).toFixed(1)}" y="${bottom + 18}" text-anchor="middle" font-size="11" fill="${COL.muted}">${xv}</text>`;
+      s += `<text x="${X(i).toFixed(1)}" y="${bottom + 18}" text-anchor="middle" font-size="13" fill="${COL.muted}">${xv}</text>`;
     }
   });
 
@@ -294,8 +294,8 @@ function energyChart({ title, xs, ys, w = 560, h = 300 }) {
     s += `<circle class="chart-dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="${COL.chartBg}" stroke="${COL.L1}" stroke-width="2"/>`;
   });
   const last = pts[pts.length - 1];
-  s += `<text class="fade-late" x="${(last[0] + 7).toFixed(1)}" y="${(last[1] - 8).toFixed(1)}" font-size="11" font-weight="700" fill="${COL.L1}">${fmt(ys[ys.length - 1], 2)}</text>`;
-  s += `<text x="${w / 2}" y="${h - 8}" text-anchor="middle" font-size="12" fill="${COL.muted}">iteration</text>`;
+  s += `<text class="fade-late" x="${(last[0] + 7).toFixed(1)}" y="${(last[1] - 8).toFixed(1)}" font-size="13" font-weight="700" fill="${COL.L1}">${fmt(ys[ys.length - 1], 2)}</text>`;
+  s += `<text x="${w / 2}" y="${h - 8}" text-anchor="middle" font-size="14" fill="${COL.muted}">iteration</text>`;
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
 }
 
@@ -309,7 +309,7 @@ function stackedBars({ title, rows, w = 560, h = 300 }) {
   let s = '';
   rows.forEach((r, ri) => {
     const y = pad.t + ri * (bh + gap);
-    s += `<text x="${pad.l - 14}" y="${y + bh / 2 + 5}" text-anchor="end" font-size="13" fill="${COL.text}">${esc(r.label)}</text>`;
+    s += `<text x="${pad.l - 14}" y="${y + bh / 2 + 5}" text-anchor="end" font-size="15" fill="${COL.text}">${esc(r.label)}</text>`;
     s += `<rect x="${pad.l}" y="${y}" width="${iw}" height="${bh}" rx="${bh / 2}" fill="${COL.chartBg}"/>`;
     let x = pad.l;
     r.segments.forEach((seg, si) => {
@@ -321,17 +321,17 @@ function stackedBars({ title, rows, w = 560, h = 300 }) {
       const dly = (0.25 + ri * 0.18 + si * 0.12).toFixed(2);
       s += `<rect class="bar" style="animation-delay:${dly}s" x="${x.toFixed(1)}" y="${y}" width="${wSeg.toFixed(1)}" height="${bh}" rx="7" fill="url(#${gid})"/>`;
       if (segW > 42) {
-        s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.35).toFixed(2)}s" x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#08111c">${fmt(seg.value, 1)}</text>`;
+        s += `<text class="fade-late" style="animation-delay:${(Number(dly) + 0.35).toFixed(2)}s" x="${(x + segW / 2).toFixed(1)}" y="${y + bh / 2 + 4}" text-anchor="middle" font-size="13" font-weight="700" fill="#08111c">${fmt(seg.value, 1)}</text>`;
       }
       x += segW;
     });
-    s += `<text class="fade-late" style="animation-delay:${(0.25 + ri * 0.18 + 0.4).toFixed(2)}s" x="${(pad.l + (r.total / maxTotal) * iw + 10).toFixed(1)}" y="${y + bh / 2 + 5}" font-size="13" font-weight="600" fill="${COL.text}">${fmt(r.total, 2)}</text>`;
+    s += `<text class="fade-late" style="animation-delay:${(0.25 + ri * 0.18 + 0.4).toFixed(2)}s" x="${(pad.l + (r.total / maxTotal) * iw + 10).toFixed(1)}" y="${y + bh / 2 + 5}" font-size="15" font-weight="600" fill="${COL.text}">${fmt(r.total, 2)}</text>`;
   });
 
   rows[0].segments.forEach((seg, k) => {
     const lx = pad.l + k * 150, lyy = 22;
     s += `<rect x="${lx}" y="${lyy - 9}" width="16" height="10" rx="3" fill="${seg.color}"/>`;
-    s += `<text x="${lx + 22}" y="${lyy}" font-size="11" fill="${COL.muted}">${esc(seg.name)}</text>`;
+    s += `<text x="${lx + 22}" y="${lyy}" font-size="13" fill="${COL.muted}">${esc(seg.name)}</text>`;
   });
 
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
@@ -360,7 +360,7 @@ function combosSvg(scale, w = 560, h = 320, nMax = 27) {
     const y = pad.t + ih - (g / 4) * ih;
     s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
     const lab = scale === 'log' ? `1e${(maxLog * g / 4).toFixed(0)}` : fmtBig(maxV * g / 4);
-    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${lab}</text>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${lab}</text>`;
   }
   for (let n = 1; n <= nMax; n++) {
     const top = yFor(n);
@@ -371,13 +371,13 @@ function combosSvg(scale, w = 560, h = 320, nMax = 27) {
     const color = mark ? COL.L4 : COL.L1;
     s += `<rect class="fade-late" style="animation-delay:${(0.1 + n * 0.015).toFixed(2)}s" x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${color}" opacity="${mark ? 0.95 : 0.7}"><title>${n} lines · 2^${n} = ${fmtBig(Math.pow(2, n))}</title></rect>`;
     if (n <= 12 || n % 3 === 0 || mark) {
-      s += `<text x="${(x + width / 2).toFixed(1)}" y="${pad.t + ih + 15}" text-anchor="middle" font-size="9" fill="${COL.muted}">${n}</text>`;
+      s += `<text x="${(x + width / 2).toFixed(1)}" y="${pad.t + ih + 15}" text-anchor="middle" font-size="12" fill="${COL.muted}">${n}</text>`;
     }
     if (mark) {
-      s += `<text x="${(x + width / 2).toFixed(1)}" y="${(top - 5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${COL.L4}">${fmtBig(Math.pow(2, n))}</text>`;
+      s += `<text x="${(x + width / 2).toFixed(1)}" y="${(top - 5).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="${COL.L4}">${fmtBig(Math.pow(2, n))}</text>`;
     }
   }
-  s += `<text x="${w / 2}" y="${h - 8}" text-anchor="middle" font-size="12" fill="${COL.muted}">number of lines (qubits)</text>`;
+  s += `<text x="${w / 2}" y="${h - 8}" text-anchor="middle" font-size="14" fill="${COL.muted}">number of lines (qubits)</text>`;
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`;
 }
 
@@ -403,8 +403,8 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
 
   let s = '';
   nets.forEach((nn, i) => {
-    s += `<text x="${ox - 12}" y="${oy + i * cell + cell / 2 + 4}" text-anchor="end" font-size="11" fill="${COL.muted}">${nn}</text>`;
-    s += `<text x="${ox + i * cell + cell / 2}" y="${oy - 10}" text-anchor="middle" font-size="11" fill="${COL.muted}">${nn}</text>`;
+    s += `<text x="${ox - 12}" y="${oy + i * cell + cell / 2 + 4}" text-anchor="end" font-size="13" fill="${COL.muted}">${nn}</text>`;
+    s += `<text x="${ox + i * cell + cell / 2}" y="${oy - 10}" text-anchor="middle" font-size="13" fill="${COL.muted}">${nn}</text>`;
   });
 
   for (let i = 0; i < n; i++) {
@@ -420,7 +420,7 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
       const t = isConflict ? 0 : weights[i][j] / maxW;
       if (isConflict) {
         s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"/>`;
-        s += `<text class="pop-late" style="animation-delay:${(Number(dly) + 0.2).toFixed(2)}s" x="${(x + d / 2).toFixed(1)}" y="${(y + d / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.conflict}">✕</text>`;
+        s += `<text class="pop-late" style="animation-delay:${(Number(dly) + 0.2).toFixed(2)}s" x="${(x + d / 2).toFixed(1)}" y="${(y + d / 2 + 4).toFixed(1)}" text-anchor="middle" font-size="14" fill="${COL.conflict}">✕</text>`;
       } else {
         s += `<rect class="cell" style="animation-delay:${dly}s" x="${x}" y="${y}" width="${d}" height="${d}" rx="6" fill="${hexLerp(COL.heatLow, COL.L1, t)}"/>`;
       }
@@ -429,11 +429,11 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
 
   const cbY = oy + n * cell + 22, cbW = 220;
   s += `<rect x="${ox}" y="${cbY}" width="${cbW}" height="10" rx="5" fill="url(#${cbarId})"/>`;
-  s += `<text x="${ox}" y="${cbY + 28}" font-size="10" fill="${COL.muted}">0</text>`;
-  s += `<text x="${ox + cbW}" y="${cbY + 28}" text-anchor="end" font-size="10" fill="${COL.muted}">${fmt(maxW, 2)}</text>`;
-  s += `<text x="${ox + cbW + 16}" y="${cbY + 10}" font-size="11" fill="${COL.muted}">coupling strength</text>`;
+  s += `<text x="${ox}" y="${cbY + 28}" font-size="13" fill="${COL.muted}">0</text>`;
+  s += `<text x="${ox + cbW}" y="${cbY + 28}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmt(maxW, 2)}</text>`;
+  s += `<text x="${ox + cbW + 16}" y="${cbY + 10}" font-size="13" fill="${COL.muted}">coupling strength</text>`;
   s += `<circle cx="${ox + cbW + 20}" cy="${cbY + 34}" r="7" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.4" stroke-dasharray="3 2"/>`;
-  s += `<text x="${ox + cbW + 34}" y="${cbY + 38}" font-size="11" fill="${COL.muted}">conflict</text>`;
+  s += `<text x="${ox + cbW + 34}" y="${cbY + 38}" font-size="13" fill="${COL.muted}">conflict</text>`;
 
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
 }
@@ -449,9 +449,9 @@ function miniBoard(model, maps, bits, label, sub) {
 
   let s = `<rect x="8" y="8" width="364" height="160" rx="8" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
   s += `<rect x="18" y="52" width="40" height="72" rx="5" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text x="38" y="91" text-anchor="middle" font-size="9" fill="${COL.text}">ADC</text>`;
+  s += `<text x="38" y="91" text-anchor="middle" font-size="12" fill="${COL.text}">ADC</text>`;
   s += `<rect x="322" y="52" width="40" height="72" rx="5" fill="${COL.block}" stroke="${COL.blockEdge}"/>`;
-  s += `<text x="342" y="91" text-anchor="middle" font-size="9" fill="${COL.text}">FPGA</text>`;
+  s += `<text x="342" y="91" text-anchor="middle" font-size="12" fill="${COL.text}">FPGA</text>`;
 
   model.nets.forEach((n) => {
     const layer = bits[nidx[n]];
@@ -474,11 +474,11 @@ function miniBoard(model, maps, bits, label, sub) {
     );
     if (p) {
       s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="7" fill="${COL.conflict}" fill-opacity="0.22" stroke="${COL.conflict}" stroke-width="1.6"/>`;
-      s += `<text x="${p[0].toFixed(1)}" y="${(p[1] + 3).toFixed(1)}" text-anchor="middle" font-size="9" fill="${COL.conflict}">✕</text>`;
+      s += `<text x="${p[0].toFixed(1)}" y="${(p[1] + 3).toFixed(1)}" text-anchor="middle" font-size="12" fill="${COL.conflict}">✕</text>`;
     }
   });
 
-  s += `<text x="${W / 2}" y="186" text-anchor="middle" font-size="11" fill="${COL.text}">${esc(label)} · ${esc(sub)}</text>`;
+  s += `<text x="${W / 2}" y="186" text-anchor="middle" font-size="13" fill="${COL.text}">${esc(label)} · ${esc(sub)}</text>`;
   return `<figure class="mini"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg></figure>`;
 }
 
@@ -654,7 +654,7 @@ export function renderBackend(q, model) {
     const yv = maxC * g / 4;
     const y = pad.t + ih - (yv / maxC) * ih;
     s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
-    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${Math.round(yv)}</text>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${Math.round(yv)}</text>`;
   }
   items.forEach((e, i) => {
     const bh = Math.max((e.count / maxC) * ih, e.count > 0 ? 2 : 0);
@@ -664,12 +664,12 @@ export function renderBackend(q, model) {
     const color = e.feasible ? COL.L1 : COL.conflict;
     const cx = (x + width / 2).toFixed(1);
     s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(e.key)} · ${e.count} shots · ${e.feasible ? 'valid' : 'conflict'}</title></rect>`;
-    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="9" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(e.key)}</text>`;
+    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="12" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(e.key)}</text>`;
   });
   s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
-  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="11" fill="${COL.muted}">valid</text>`;
+  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="13" fill="${COL.muted}">valid</text>`;
   s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
-  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="11" fill="${COL.muted}">conflict</text>`;
+  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="13" fill="${COL.muted}">conflict</text>`;
 
   const feasiblePct = total ? (feas / total) * 100 : 0;
   const title = `QPU result · ${q.backend_name || 'backend'} · ${q.shots || total} shots · valid ${fmt(feasiblePct, 1)}%`;
