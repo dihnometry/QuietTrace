@@ -19,6 +19,12 @@ const clamp = (v, lo, hi, dflt) => {
 let currentKind = '1adc';
 let MODEL = null;
 
+function markDirty() {
+  const st = document.getElementById('order-status');
+  if (st) st.textContent = '';
+  setStatus('Settings changed — press ▶ Run to apply.');
+}
+
 const shotsEl = () => document.getElementById('shots-num') || document.getElementById('shots-range');
 const readShots = () => clamp(shotsEl() ? shotsEl().value : 1024, 0, 2000, 1024);
 
@@ -94,39 +100,26 @@ async function resample() {
 
 const problemTabs = Array.from(document.querySelectorAll('.problem-tab'));
 problemTabs.forEach((b) => {
-  b.onclick = async () => {
+  b.onclick = () => {
     if (b.dataset.problem === currentKind) return;
     currentKind = b.dataset.problem;
     problemTabs.forEach((x) => x.classList.toggle('active', x === b));
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
-    try {
-      await runPipeline();
-      await resample();
-    } catch (e) {
-      console.error(e);
-      setStatus(`Error switching problem: ${e}`);
-    }
+    markDirty();
   };
 });
 
-let orderTimer = null;
-function scheduleOrders(immediate) {
-  clearTimeout(orderTimer);
-  const go = async () => {
+{
+  const el = orderEl();
+  if (el) { el.oninput = markDirty; el.onchange = markDirty; }
+  const reset = document.getElementById('order-reset');
+  if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; markDirty(); };
+  const run = document.getElementById('run');
+  if (run) run.onclick = async () => {
     try { await runPipeline(); await resample(); }
     catch (e) { console.error(e); setStatus(`Error: ${e}`); }
   };
-  if (immediate) go(); else orderTimer = setTimeout(go, 400);
-}
-{
-  const el = orderEl();
-  if (el) {
-    el.oninput = () => scheduleOrders(false);
-    el.onchange = () => scheduleOrders(true);
-  }
-  const reset = document.getElementById('order-reset');
-  if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; scheduleOrders(true); };
 }
 
 const shotsRange = document.getElementById('shots-range');

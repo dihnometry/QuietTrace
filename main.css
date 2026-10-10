@@ -408,3 +408,14 @@ body.modal-open { overflow: hidden; }
   border: 1px solid var(--edge); border-radius: 6px; padding: 4px 10px;
 }
 .order-status { color: #ffb86c; }
+
+/* boton Run */
+.run-btn {
+  margin-left: auto;
+  font: inherit; font-size: 0.9rem; font-weight: 700;
+  color: #04121f; background: var(--accent);
+  border: 1px solid var(--accent); border-radius: 8px;
+  padding: 5px 16px; cursor: pointer;
+}
+.run-btn:hover { box-shadow: 0 0 12px rgba(84, 255, 87, 0.55); }
+.run-btn:active { transform: translateY(1px); }
