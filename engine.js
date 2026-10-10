@@ -80,7 +80,7 @@ function polyInter(pa, pb) {
 }
 
 // Realistic PCB routing: straight, 45° jog, straight.
-const RX0 = 16, RX1 = 104, LZ = 48;
+const RX0 = 16, RX1 = 104;
 
 function route(z1, z2) {
   const dz = z2 - z1, adz = Math.abs(dz), dx = RX1 - RX0;
@@ -89,7 +89,8 @@ function route(z1, z2) {
   return [[RX0, z1], [RX0 + straight, z1], [RX0 + straight + adz, z2], [RX1, z2]];
 }
 
-const zAt = (rank, nNets) => 5 + rank * ((LZ - 10) / (nNets - 1));
+const LZ_OF = (n) => Math.min(98, Math.max(48, 5.5 * n));   // corridor depth, grows with n
+const zAt = (rank, nNets) => 5 + rank * ((LZ_OF(nNets) - 10) / (nNets - 1));
 const traceDelay = (i) => (0.15 + i * 0.06).toFixed(2);
 const lateDelay = (i, base = 0.8) => (base + i * 0.05).toFixed(2);
 
@@ -98,11 +99,13 @@ const lateDelay = (i, base = 0.8) => (base + i * 0.05).toFixed(2);
 function boardSvg(model, maps, assignment, title) {
   const { nidx, rankIn, rankOut } = maps;
   const W = 900, H = 452;
+  const nN = model.nets.length;
+  const LZv = LZ_OF(nN);
+  const TRACE_W = nN > 12 ? 2 : 3.5;
   const sx = (x) => 40 + x * (820 / 120);
-  const sz = (z) => 60 + z * 6.25;
+  const sz = (z) => 60 + (z / LZv) * 300;
   const pt = ([x, z]) => [sx(x), sz(z)];
   const polyStr = (arr) => arr.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const nN = model.nets.length;
 
   let s = '';
   s += `<rect x="16" y="16" width="868" height="360" rx="12" fill="${COL.board}" stroke="${COL.blockEdge}"/>`;
@@ -118,7 +121,7 @@ function boardSvg(model, maps, assignment, title) {
     const color = layer === 0 ? COL.L1 : COL.L4;
     const pts = route(zAt(rankIn[n], nN), zAt(rankOut[n], nN)).map(pt);
     const dly = traceDelay(i);
-    s += `<polyline class="trace${layer === 1 ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${polyStr(pts)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95"/>`;
+    s += `<polyline class="trace${layer === 1 ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${polyStr(pts)}" fill="none" stroke="${color}" stroke-width="${TRACE_W}" opacity="0.95"/>`;
     if (layer === 1) {
       pts.forEach(([x, y]) => { s += `<circle class="fade-late" style="animation-delay:${lateDelay(i)}s" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${COL.board}" stroke="${COL.L4}" stroke-width="2.5"/>`; });
     }
@@ -154,14 +157,18 @@ function boardSvg(model, maps, assignment, title) {
 
 function board3d(model, maps, assignment, title) {
   const { nidx, rankIn, rankOut } = maps;
-  const W = 900, H = 620;
-  const S = 5.0, OX = 160, OY = 40;
+  const nN = model.nets.length;
+  const DZ = LZ_OF(nN);
+  const S = 5.0, OY = 40;
+  const OX = 60 + DZ * 2.1;
+  const W = 900;
+  const H = 40 + 5 * (90.4 + 0.26 * DZ) + 96;
   const EX = { x: 1.0, y: 0.12 }, EZ = { x: -0.42, y: 0.26 };
   const Lx = 120, T = 4;
+  const TRACE_W = nN > 12 ? 2 : 3.5;
   const LAYER_H = { L1: 0, L2: 24, L3: 48, L4: 72 };
   const FILL = { L1: COL.L1fill, L2: COL.L2fill, L3: COL.L3fill, L4: COL.L4fill };
   const STROKE = { L1: COL.L1, L2: COL.muted, L3: COL.muted, L4: COL.L4 };
-  const nN = model.nets.length;
 
   const P = (x, z, h) => [OX + (x * EX.x + z * EZ.x) * S, OY + (x * EX.y + z * EZ.y + h) * S];
   const pts = (arr) => arr.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
@@ -171,12 +178,12 @@ function board3d(model, maps, assignment, title) {
   let traceIdx = 0;
 
   const slab = (h, fill, stroke, label) => {
-    const A = P(0, 0, h), B = P(Lx, 0, h), C = P(Lx, LZ, h), D = P(0, LZ, h);
-    const Cb = P(Lx, LZ, h + T), Db = P(0, LZ, h + T), Bb = P(Lx, 0, h + T);
+    const A = P(0, 0, h), B = P(Lx, 0, h), C = P(Lx, DZ, h), D = P(0, DZ, h);
+    const Cb = P(Lx, DZ, h + T), Db = P(0, DZ, h + T), Bb = P(Lx, 0, h + T);
     s += `<polygon points="${pts([D, C, Cb, Db])}" fill="${shade(fill, -0.30)}" stroke="${stroke}" stroke-width="1"/>`;
     s += `<polygon points="${pts([B, C, Cb, Bb])}" fill="${shade(fill, -0.48)}" stroke="${stroke}" stroke-width="1"/>`;
     s += `<polygon points="${pts([A, B, C, D])}" fill="${fill}" stroke="${stroke}" stroke-width="1.2" opacity="0.5"/>`;
-    const lp = P(4, LZ - 5, h);
+    const lp = P(4, DZ - 5, h);
     s += `<text x="${lp[0].toFixed(1)}" y="${lp[1].toFixed(1)}" font-size="14" fill="${stroke}">${label}</text>`;
   };
 
@@ -185,7 +192,7 @@ function board3d(model, maps, assignment, title) {
     const color = layer === 'L1' ? COL.L1 : COL.L4;
     const rp = route3(n, h);
     const dly = traceDelay(traceIdx++);
-    s += `<polyline class="trace${layer === 'L4' ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${pts(rp)}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.95"/>`;
+    s += `<polyline class="trace${layer === 'L4' ? ' trace-l4' : ''}" style="animation-delay:${dly}s" pathLength="1" points="${pts(rp)}" fill="none" stroke="${color}" stroke-width="${TRACE_W}" opacity="0.95"/>`;
     s += `<text class="fade-late" style="animation-delay:${dly}s" x="${(rp[0][0] - 6).toFixed(1)}" y="${(rp[0][1] + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${color}">${n}</text>`;
   };
 
@@ -233,7 +240,7 @@ function board3d(model, maps, assignment, title) {
     }
   });
 
-  const ly = 578;
+  const ly = H - 44;
   s += `<line x1="40" y1="${ly}" x2="70" y2="${ly}" stroke="${COL.L1}" stroke-width="3.5"/>`;
   s += `<text x="78" y="${ly + 4}" font-size="14" fill="${COL.muted}">L1 (signals)</text>`;
   s += `<line x1="182" y1="${ly}" x2="212" y2="${ly}" stroke="${COL.L4}" stroke-width="3.5" stroke-dasharray="6 4"/>`;
@@ -246,7 +253,7 @@ function board3d(model, maps, assignment, title) {
   s += `<circle cx="622" cy="${ly}" r="9" fill="${COL.conflict}" fill-opacity="0.16" stroke="${COL.conflict}" stroke-width="2"/>`;
   s += `<text x="638" y="${ly + 4}" font-size="14" fill="${COL.muted}">conflict</text>`;
 
-  s += `<text x="${W / 2}" y="606" text-anchor="middle" font-size="17" fill="${COL.text}">${esc(title)}</text>`;
+  s += `<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="17" fill="${COL.text}">${esc(title)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${s}</svg>`;
 }
 
@@ -536,7 +543,7 @@ function miniBoard(model, maps, bits, label, sub) {
   const nN = model.nets.length;
   const W = 380, H = 208;
   const bx = (x) => 70 + ((x - 16) / (104 - 16)) * (310 - 70);
-  const bz = (z) => 44 + (z / 48) * (154 - 44);
+  const bz = (z) => 44 + (z / LZ_OF(nN)) * (154 - 44);
   const pt = ([x, z]) => [bx(x), bz(z)];
   const str = (arr) => arr.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
 
@@ -551,7 +558,7 @@ function miniBoard(model, maps, bits, label, sub) {
     const color = layer === 0 ? COL.L1 : COL.L4;
     const pts = route(zAt(rankIn[n], nN), zAt(rankOut[n], nN)).map(pt);
     const dash = layer === 1 ? 'stroke-dasharray="4 3"' : '';
-    s += `<polyline points="${str(pts)}" fill="none" stroke="${color}" stroke-width="2.4" opacity="0.95" ${dash}/>`;
+    s += `<polyline points="${str(pts)}" fill="none" stroke="${color}" stroke-width="${nN > 12 ? 1.6 : 2.4}" opacity="0.95" ${dash}/>`;
     if (layer === 1) {
       pts.forEach(([x, y]) => {
         s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${COL.board}" stroke="${COL.L4}" stroke-width="1.6"/>`;
