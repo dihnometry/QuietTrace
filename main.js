@@ -19,10 +19,24 @@ const clamp = (v, lo, hi, dflt) => {
 let currentKind = '1adc';
 let MODEL = null;
 
-function markDirty() {
-  const st = document.getElementById('order-status');
-  if (st) st.textContent = '';
-  setStatus('Settings changed — press ▶ Run to apply.');
+async function refreshProblem() {
+  setStatus('Updating problem…');
+  try {
+    const p = (await pipeline.get_problem.callPromising(currentKind, currentOrder())).toJs();
+    p.status = 'idle';
+    render(p);   // BEFORE + non-QAOA now; AFTER/QAOA show "press ▶ Run"
+    setStatus('Settings changed — press ▶ Run to run QAOA.');
+  } catch (e) {
+    console.error(e);
+    setStatus(`Error: ${e}`);
+  }
+}
+
+let problemTimer = null;
+function scheduleProblem(immediate) {
+  clearTimeout(problemTimer);
+  if (immediate) refreshProblem();
+  else problemTimer = setTimeout(refreshProblem, 350);
 }
 
 const shotsEl = () => document.getElementById('shots-num') || document.getElementById('shots-range');
@@ -51,7 +65,8 @@ function reportOrder() {
 async function runPipeline() {
   setStatus('Building problem…');
   const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder())).toJs();
-  render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = loading
+  problem.status = 'running';
+  render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = Running
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder())).toJs();
@@ -110,15 +125,15 @@ problemTabs.forEach((b) => {
     problemTabs.forEach((x) => x.classList.toggle('active', x === b));
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
-    markDirty();
+    scheduleProblem(true);
   };
 });
 
 {
   const el = orderEl();
-  if (el) { el.oninput = markDirty; el.onchange = markDirty; }
+  if (el) { el.oninput = () => scheduleProblem(false); el.onchange = () => scheduleProblem(true); }
   const reset = document.getElementById('order-reset');
-  if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; markDirty(); };
+  if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; scheduleProblem(true); };
   const run = document.getElementById('run');
   if (run) run.onclick = async () => {
     try { await runPipeline(); await resample(); }
@@ -232,7 +247,7 @@ function applyConnections() {
   const el = orderEl();
   if (el) el.value = connOrder.join(',');
   closeConnections();
-  markDirty();
+  scheduleProblem(true);
 }
 
 {

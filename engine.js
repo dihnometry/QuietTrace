@@ -671,8 +671,8 @@ function loadingBoard(title) {
   </svg>`;
 }
 
-function loadingCard(title) {
-  return chartCard(title, '<div style="height:170px;display:flex;align-items:center;justify-content:center;color:' + COL.muted + '">Running QAOA…</div>');
+function loadingCard(title, text = 'Running QAOA…') {
+  return chartCard(title, '<div style="height:170px;display:flex;align-items:center;justify-content:center;color:' + COL.muted + '">' + text + '</div>');
 }
 
 // Fast pre-QAOA view: BEFORE + things that do not depend on QAOA; AFTER/QAOA = loading.
@@ -686,7 +686,8 @@ function drawBoards(model, maps, loading) {
   const beforeCounts = `${model.assignments.before_layers.L1.length} on L1 · ${b.violations} conflicts`;
   elBefore.innerHTML = fn(model, maps, model.assignments.before, `BEFORE · ${beforeCounts}`);
   if (loading) {
-    elAfter.innerHTML = loadingBoard('AFTER · running QAOA…');
+    const t = model.status === 'running' ? 'AFTER · running QAOA…' : 'AFTER · press ▶ Run';
+    elAfter.innerHTML = loadingBoard(t);
   } else {
     const a = model.costs.after;
     const afterCounts = `L1 ${model.assignments.after_layers.L1.length} · L4 ${model.assignments.after_layers.L4.length} · ${a.violations} conflicts`;
@@ -719,7 +720,7 @@ function renderLoading(model) {
   wireViewTabs(model, maps, true);
 
   const evo = document.getElementById('evolution');
-  if (evo) evo.innerHTML = '<p class="note">Running QAOA…</p>';
+  if (evo) evo.innerHTML = `<p class="note">${model.status === 'running' ? 'Running QAOA…' : 'Press ▶ Run'}</p>`;
 
   document.getElementById('stats').innerHTML = [
     statCard('Qubits', String(model.meta.num_qubits || model.meta.n_nets), '', COL.coupling),
@@ -738,8 +739,8 @@ function renderLoading(model) {
     ] }],
   }));
   CHART_SOURCE = 'QAOA';
-  charts.push(loadingCard('Circuit distribution'));
-  charts.push(loadingCard('QAOA convergence · energy ⟨H_C⟩'));
+  charts.push(loadingCard('Circuit distribution', model.status === 'running' ? 'Running QAOA…' : 'Press ▶ Run'));
+  charts.push(loadingCard('QAOA convergence · energy ⟨H_C⟩', model.status === 'running' ? 'Running QAOA…' : 'Press ▶ Run'));
   CHART_SOURCE = 'theoretical';
   charts.push(combosCard('log'));
   CHART_SOURCE = 'geometric';
