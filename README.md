@@ -25,9 +25,10 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
 - **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
   iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
-- **When a backend exists**, the distribution-dependent charts (*Circuit distribution*,
-  *Cost breakdown* after, the after-board) are recomputed from that backend's counts
-  (badge `backend`); the optimization trace (*QAOA convergence*, *evolution*) stays local.
+- **When a backend exists**, the local view is not painted until the job returns. Then the
+  charts use that backend's counts: *Circuit distribution* shows **ideal vs backend**, and
+  *Cost breakdown* (after) + the after-board come from the backend. The optimization trace
+  (*QAOA convergence*, *evolution*) stays local.
 - **QPU run:** see below.
 
 ## Run on a QPU

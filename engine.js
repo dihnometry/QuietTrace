@@ -391,11 +391,27 @@ function combosCard(scale) {
   </div>`;
 }
 
-function distributionChart({ title, items, w = 560, h = 330 }) {
-  const pad = { l: 56, r: 18, t: 30, b: 82 };
+function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
+  const pad = { l: 56, r: 18, t: 30, b: 84 };
   const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
-  const maxP = Math.max(...items.map((d) => d.prob)) || 1;
-  const bw = iw / items.length;
+  const key = (d) => (d.x || []).join('');
+
+  const map = new Map();
+  (ideal || []).forEach((d) => map.set(key(d), { label: key(d), ideal: d.prob, backend: 0, feasible: d.feasible }));
+  (items || []).forEach((d) => {
+    const k = key(d);
+    const e = map.get(k) || { label: k, ideal: 0, backend: 0, feasible: d.feasible };
+    e.backend = d.prob;
+    e.feasible = d.feasible;
+    map.set(k, e);
+  });
+
+  const grouped = Array.isArray(ideal) && ideal.length > 0;
+  let rows = [...map.values()];
+  rows.sort((a, b) => Math.max(b.ideal, b.backend) - Math.max(a.ideal, a.backend));
+  rows = rows.slice(0, 16);
+  const maxP = Math.max(...rows.map((r) => Math.max(r.ideal, r.backend)), 1e-6);
+  const slot = iw / Math.max(rows.length, 1);
 
   let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
   for (let g = 0; g <= 4; g++) {
@@ -404,22 +420,39 @@ function distributionChart({ title, items, w = 560, h = 330 }) {
     s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
     s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmt(yv, 2)}</text>`;
   }
-  items.forEach((d, i) => {
-    const bh = Math.max((d.prob / maxP) * ih, d.prob > 0 ? 2 : 0);
-    const x = pad.l + i * bw + bw * 0.16;
-    const width = bw * 0.68;
+
+  const bar = (x, width, val, color, i) => {
+    const bh = Math.max((val / maxP) * ih, val > 0 ? 2 : 0);
     const y = pad.t + ih - bh;
-    const color = d.feasible ? COL.L1 : COL.conflict;
-    const cx = (x + width / 2).toFixed(1);
-    const label = (d.x || []).join('');
-    s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(label)} · p=${fmt(d.prob, 3)} · cost ${fmt(d.cost)} · ${d.feasible ? 'valid' : 'conflict'}</title></rect>`;
-    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="11" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(label)}</text>`;
+    s += `<rect class="fade-late" style="animation-delay:${(0.2 + i * 0.02).toFixed(2)}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${color}" opacity="0.9"/>`;
+  };
+
+  rows.forEach((r, i) => {
+    const x0 = pad.l + i * slot;
+    if (grouped) {
+      const bw = slot * 0.38;
+      bar(x0 + slot * 0.12, bw, r.ideal, COL.muted, i);
+      bar(x0 + slot * 0.5, bw, r.backend, COL.L1, i);
+    } else {
+      bar(x0 + slot * 0.16, slot * 0.68, r.backend || r.ideal, r.feasible ? COL.L1 : COL.conflict, i);
+    }
+    const cx = (x0 + slot / 2).toFixed(1);
+    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="11" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(r.label)}</text>`;
   });
-  s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
-  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="13" fill="${COL.muted}">valid</text>`;
-  s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
-  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="13" fill="${COL.muted}">conflict</text>`;
-  s += `<text x="${w - pad.r}" y="${h - 13}" text-anchor="end" font-size="12" fill="${COL.muted}">probability per bitstring</text>`;
+
+  const ly = h - 22;
+  if (grouped) {
+    s += `<rect x="${pad.l}" y="${ly}" width="16" height="10" rx="3" fill="${COL.muted}"/>`;
+    s += `<text x="${pad.l + 22}" y="${ly + 10}" font-size="13" fill="${COL.muted}">ideal</text>`;
+    s += `<rect x="${pad.l + 92}" y="${ly}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+    s += `<text x="${pad.l + 114}" y="${ly + 10}" font-size="13" fill="${COL.muted}">backend</text>`;
+  } else {
+    s += `<rect x="${pad.l}" y="${ly}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+    s += `<text x="${pad.l + 22}" y="${ly + 10}" font-size="13" fill="${COL.muted}">valid</text>`;
+    s += `<rect x="${pad.l + 104}" y="${ly}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
+    s += `<text x="${pad.l + 126}" y="${ly + 10}" font-size="13" fill="${COL.muted}">conflict</text>`;
+  }
+  s += `<text x="${w - pad.r}" y="${ly + 10}" text-anchor="end" font-size="12" fill="${COL.muted}">probability per bitstring</text>`;
 
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
 }
@@ -625,9 +658,15 @@ export function render(model) {
     ],
   }));
 
-  CHART_SOURCE = model.distribution_source === 'backend' ? 'backend' : (isReal ? 'ideal' : 'mock');
+  const idealDist = Array.isArray(model.ideal_distribution) ? model.ideal_distribution : null;
+  CHART_SOURCE = idealDist ? 'ideal vs backend'
+    : (model.distribution_source === 'backend' ? 'backend' : (isReal ? 'ideal' : 'mock'));
   if (Array.isArray(model.distribution) && model.distribution.length) {
-    charts.push(distributionChart({ title: 'Circuit distribution', items: model.distribution }));
+    charts.push(distributionChart({
+      title: idealDist ? 'Circuit distribution · ideal vs backend' : 'Circuit distribution',
+      items: model.distribution,
+      ideal: idealDist,
+    }));
   }
 
   CHART_SOURCE = 'QAOA';

@@ -1,9 +1,8 @@
 // QuietTracE — JS entry point (Qollab).
 //
-// 1) Optimizes locally: model (quantum/modelo.py) + QAOA (quantum/fastqaoa.py).
-// 2) Renders the result with engine.js.
-// 3) If Qollab injects `backend` (the one chosen in Select QPU), sends ONE final
-//    QAOA circuit to it and renders the measured counts (one job per run).
+// 1) Optimizes locally (model + QAOA). 2) If Qollab injects `backend`, it sends
+// ONE QAOA circuit and waits for the result BEFORE painting (the local view is
+// not shown); charts then come from that backend. Otherwise it paints locally.
 
 import * as pipeline from 'quantum.pipeline'; // -> quantum/pipeline.py
 import { render, renderBackend } from './engine.js';
@@ -11,45 +10,44 @@ import { render, renderBackend } from './engine.js';
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
 
-setStatus('Running the pipeline (model + QAOA)… this may take a few seconds.');
+const hasBackend = (typeof backend !== 'undefined') && !!backend;
+
+setStatus('Preparing the pipeline (model + QAOA)…');
 
 try {
   const model = (await pipeline.get_model.callPromising()).toJs();
-  render(model);
-
-  setStatus(
-    model.source === 'qaoa'
-      ? `Local QAOA ready · ${model.meta.num_qubits} qubits · p=${model.meta.reps} · `
-        + `cost ${Number(model.costs.after.total).toFixed(3)} (optimal ${Number(model.exact.cost).toFixed(3)}) · `
-        + `gap ${(Number(model.meta.approx_gap) * 100).toFixed(1)}%`
-      : 'Model ready.'
-  );
   console.log('QuietTracE · pipeline', JSON.stringify(model.meta));
 
-  if (typeof backend !== 'undefined' && backend) {
-    setStatus('Local optimization done. Sending 1 QAOA circuit to the selected backend…');
+  if (hasBackend) {
+    // No local view: wait for the backend, then paint from its result.
+    setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(backend, 1024)).toJs();
-
-      // Distribution-derived fields come already computed from the backend
-      // counts (Python side), so the charts reflect the noisy backend.
       const over = q.derived;
+
+      model.ideal_distribution = model.distribution;   // keep ideal to compare
       model.distribution = over.distribution;
       model.distribution_source = over.distribution_source;
       model.costs.after = over.costs_after;
       model.assignments.after = over.assignments_after;
       model.assignments.after_layers = over.assignments_after_layers;
 
-      render(model);            // redraw charts/boards from the backend result
-      renderBackend(q, model);  // QPU panel (counts + executed circuit)
-
-      setStatus(`Local QAOA ready · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job) · charts from that backend.`);
+      render(model);
+      renderBackend(q, model);
+      setStatus(`Done · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job) · charts from that backend.`);
     } catch (errJob) {
       console.error(errJob);
+      render(model);  // fall back to the local view if the job failed
       setStatus(`Local QAOA ready · QPU run did not complete: ${errJob}`);
     }
   } else {
-    setStatus('Local QAOA ready · (no backend injected: local preview).');
+    render(model);
+    setStatus(
+      model.source === 'qaoa'
+        ? `Local QAOA ready · ${model.meta.num_qubits} qubits · p=${model.meta.reps} · `
+          + `cost ${Number(model.costs.after.total).toFixed(3)} (optimal ${Number(model.exact.cost).toFixed(3)})`
+        : 'Model ready.'
+    );
   }
 } catch (err) {
   setStatus(`Pipeline error: ${err}`);
