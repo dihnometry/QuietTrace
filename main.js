@@ -5,7 +5,7 @@
 // not shown); charts then come from that backend. Otherwise it paints locally.
 
 import * as pipeline from 'quantum.pipeline'; // -> quantum/pipeline.py
-import { render, renderBackend } from './engine.js';
+import { render, renderBackend, renderSampling } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
@@ -55,6 +55,22 @@ try {
           + `cost ${Number(model.costs.after.total).toFixed(3)} (optimal ${Number(model.exact.cost).toFixed(3)})`
         : 'Model ready.'
     );
+  }
+
+  // Local sampling control (ideal resample; no QPU job).
+  const shotsEl = document.getElementById('shots');
+  const shotsVal = document.getElementById('shots-val');
+  if (shotsEl) {
+    const runSample = async () => {
+      const s = Math.max(1, Number(shotsEl.value));
+      if (shotsVal) shotsVal.textContent = `${s} shots`;
+      try {
+        const r = (await pipeline.resample_ideal.callPromising(s)).toJs();
+        renderSampling(r);
+      } catch (e) { console.error(e); }
+    };
+    shotsEl.oninput = runSample;
+    await runSample();
   }
 } catch (err) {
   setStatus(`Pipeline error: ${err}`);

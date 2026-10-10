@@ -683,10 +683,10 @@ export function render(model) {
     }));
   }
 
-  CHART_SOURCE = 'QAOA';
+  CHART_SOURCE = 'ideal · local';
   if (model.convergence && Array.isArray(model.convergence.energy)) {
     charts.push(energyChart({
-      title: 'QAOA convergence · energy ⟨H_C⟩',
+      title: 'QAOA convergence · energy ⟨H_C⟩ (ideal, local optimization)',
       xs: model.convergence.x,
       ys: model.convergence.energy,
       mark: model.measured_energy,
@@ -713,6 +713,21 @@ export function render(model) {
       document.querySelectorAll('.combos-toggle .tg').forEach((x) => x.classList.toggle('active', x === btn));
     };
   });
+}
+
+// Local ideal-sampling result (no QPU job).
+export function renderSampling(res) {
+  const el = document.getElementById('sampling');
+  if (!el) return;
+  if (!res) { el.innerHTML = ''; return; }
+  const pct = (v) => (v == null ? '—' : `${fmt(v * 100, 1)}%`);
+  const found = res.found_optimal ? 'yes' : 'NO';
+  const color = res.found_optimal ? COL.L1 : COL.conflict;
+  el.innerHTML = `
+    <p class="qpu-line"><strong>${res.shots}</strong> shots · optimal found:
+      <strong style="color:${color}">${found}</strong> · TVD ${fmt(res.tvd, 3)} · best feasible cost ${fmt(res.best.cost)}</p>
+    <p class="note">success ${pct(res.success_ideal)} → ${pct(res.success_backend)}
+      · valid ${pct(res.valid_ideal)} → ${pct(res.valid_backend)} (ideal → sampled)</p>`;
 }
 
 // Result of a run on the backend selected in Qollab (QPU or simulator).

@@ -235,6 +235,64 @@ def model_from_counts(counts):
     return _fields_from_counts(counts, prob, len(prob["nets"]))
 
 
+_IDEAL = {}
+
+
+def _ideal_cached():
+    if "probs" not in _IDEAL:
+        prob = _problem()
+        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER)
+        _IDEAL["prob"] = prob
+        _IDEAL["probs"] = np.asarray(qa["probabilities"], dtype=float)
+    return _IDEAL
+
+
+def resample_ideal(shots=1024, seed=None):
+    """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
+
+    No usa el backend: sirve para ver el efecto del numero de shots (ruido de
+    muestreo) sobre las metricas y sobre 'encontrar el optimo'.
+    """
+    ideal = _ideal_cached()
+    prob = ideal["prob"]
+    probs = ideal["probs"]
+    n = len(prob["nets"])
+
+    rng = np.random.default_rng(seed)
+    p = probs / probs.sum()
+    draws = rng.choice(len(p), size=int(shots), p=p)
+
+    # conteos con la misma convencion de clave que Qiskit (MSB = qubit n-1)
+    counts = {}
+    for k in draws:
+        key = "".join(str(b) for b in reversed(_bits_from_index(int(k), n)))
+        counts[key] = counts.get(key, 0) + 1
+
+    derived = _fields_from_counts(counts, prob, n)
+
+    Q = np.zeros(1 << n, dtype=float)
+    for k in draws:
+        Q[int(k)] += 1.0
+    Q /= max(1, len(draws))
+
+    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                             prob["conflicts"], prob["M"])[1]]
+    opt = _index_from_bits(optimal)
+    mask = _feasible_mask(n, prob["conflicts"])
+
+    derived.update({
+        "distribution_source": "sampled",
+        "shots": int(shots),
+        "found_optimal": bool(Q[opt] > 0),
+        "tvd": round(float(0.5 * np.sum(np.abs(p - Q))), 6),
+        "success_ideal": round(float(p[opt]), 6),
+        "success_backend": round(float(Q[opt]), 6),
+        "valid_ideal": round(float(p[mask].sum()), 6),
+        "valid_backend": round(float(Q[mask].sum()), 6),
+    })
+    return derived
+
+
 def get_model():
     prob = _problem()
     nets = prob["nets"]
