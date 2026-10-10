@@ -1,5 +1,5 @@
 # QuietTracE — dependencias Python
 #
-# Qiskit siempre está instalado; se fija aquí explícitamente para que un módulo
-# Python importado solo desde JS (quantum/bell.py) tenga su paquete garantizado.
+# Qiskit se fija aquí (aunque Qollab lo instala siempre) porque el pipeline lo
+# necesita. NumPy y SciPy vienen con Pyodide: se cargan al importar y NO se listan.
 qiskit>=2.5.2,<3.0.0

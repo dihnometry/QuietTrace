@@ -29,9 +29,20 @@ const THEMES = {
     chartBg: 'rgba(3,14,24,0.55)', heatLow: '#0a2136',
     L1fill: '#0e3345', L2fill: '#16283a', L3fill: '#16283a', L4fill: '#3a2f14',
   },
+  // 3) Híbrido: colores y bordes nítidos de OtherDev + glow de Frutiger Aero
+  hybrid: {
+    board: '#000000',
+    block: '#0f0f0f', blockEdge: '#3a3a3a', blockSide: '#0a0a0a', blockSideDark: '#060606',
+    grid: '#262626',
+    text: '#cfcfd6', muted: '#8b8b95',
+    L1: '#54ff57', L4: '#ff6fae', conflict: '#ff5b5b',
+    coupling: '#54ff57', viaCost: '#ff6fae', conflictCost: '#ff5b5b',
+    chartBg: '#080808', heatLow: '#101010',
+    L1fill: '#0f1c0f', L2fill: '#141414', L3fill: '#141414', L4fill: '#1f1118',
+  },
 };
 
-let currentTheme = 'aero';
+let currentTheme = 'hybrid';
 let COL = THEMES[currentTheme];
 
 const fmt = (n, d = 2) => Number(n).toFixed(d);
@@ -419,6 +430,41 @@ function heatmap({ title, nets, weights, conflicts, w = 560, h = 368 }) {
   return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img"><defs>${defs}</defs>${s}</svg>`);
 }
 
+function histogram({ title, items, w = 560, h = 330 }) {
+  const pad = { l: 56, r: 18, t: 30, b: 82 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const maxP = Math.max(...items.map((d) => d.prob)) || 1;
+  const bw = iw / items.length;
+
+  let s = `<rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" rx="10" fill="${COL.chartBg}"/>`;
+  for (let g = 0; g <= 4; g++) {
+    const yv = maxP * g / 4;
+    const y = pad.t + ih - (yv / maxP) * ih;
+    s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="${COL.muted}">${fmt(yv, 2)}</text>`;
+  }
+
+  items.forEach((d, i) => {
+    const bh = Math.max((d.prob / maxP) * ih, d.prob > 0 ? 2 : 0);
+    const x = pad.l + i * bw + bw * 0.16;
+    const width = bw * 0.68;
+    const y = pad.t + ih - bh;
+    const color = d.feasible ? COL.L1 : COL.conflict;
+    const dly = (0.2 + i * 0.03).toFixed(2);
+    const cx = (x + width / 2).toFixed(1);
+    s += `<rect class="fade-late" style="animation-delay:${dly}s" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${width.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="${color}" opacity="0.88"><title>${esc(d.label)} · coste ${fmt(d.cost, 2)} · ${d.feasible ? 'factible' : 'NO factible'}</title></rect>`;
+    s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="9" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(d.label)}</text>`;
+  });
+
+  s += `<rect x="${pad.l}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+  s += `<text x="${pad.l + 22}" y="${h - 13}" font-size="11" fill="${COL.muted}">factible</text>`;
+  s += `<rect x="${pad.l + 104}" y="${h - 22}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
+  s += `<text x="${pad.l + 126}" y="${h - 13}" font-size="11" fill="${COL.muted}">viola conflicto</text>`;
+  s += `<text x="${w - pad.r}" y="${h - 13}" text-anchor="end" font-size="11" fill="${COL.muted}">probabilidad por bitstring (orden D0…CLK)</text>`;
+
+  return chartCard(title, `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">${s}</svg>`);
+}
+
 function statCard(label, value, sub = '', accent = '') {
   return `<div class="stat"${accent ? ` style="--accent:${accent}"` : ''}>
     <span class="stat-label">${esc(label)}</span>
@@ -490,17 +536,26 @@ export function render(model) {
     };
   });
 
-  document.getElementById('stats').innerHTML = [
+  const isReal = model.source === 'qaoa';
+  const cards = [
     statCard('Costo antes', fmt(b.total), 'corte + vías + conflictos', COL.coupling),
-    statCard('Costo después', fmt(a.total), 'solución factible', COL.L4),
+    statCard('Costo después', fmt(a.total), isReal ? 'mejor solución QAOA factible' : 'solución factible', COL.L4),
     statCard('Mejora', `${fmt(improvement, 1)}%`, 'vs. todas en L1', COL.conflict),
     statCard('Conflictos', `${b.violations} → ${a.violations}`, 'resueltos por capa', COL.conflict),
     statCard('Vías', `${b.vias} → ${a.vias}`, `${model.meta.vias_per_l4} por red a L4`, COL.L4),
-    statCard('Parámetros', `λv=${model.meta.lambda_v} · M=${model.meta.m_penalty}`, 'mock', COL.muted),
-  ].join('');
+  ];
+  if (isReal) {
+    cards.push(statCard('Qubits', `${model.meta.num_qubits}`, `p=${model.meta.reps} · ${model.meta.num_parameters} params`, COL.coupling));
+    cards.push(statCard('Factibilidad', `${fmt(model.meta.feasibility * 100, 1)}%`, 'masa de probabilidad factible', COL.L4));
+    cards.push(statCard('Óptimo exacto', fmt(model.exact.cost), `gap ${fmt(model.meta.approx_gap * 100, 1)}%`, COL.conflict));
+    cards.push(statCard('Energía QAOA', fmt(model.meta.energy), '⟨H_C⟩ mínima', COL.muted));
+  } else {
+    cards.push(statCard('Parámetros', `λv=${model.meta.lambda_v} · M=${model.meta.m_penalty}`, 'mock', COL.muted));
+  }
+  document.getElementById('stats').innerHTML = cards.join('');
 
   CHART_IDX = 0;
-  document.getElementById('charts').innerHTML = [
+  const charts = [
     stackedBars({
       title: 'Desglose de costo',
       rows: [
@@ -535,27 +590,34 @@ export function render(model) {
       ],
     }),
     lineChart({
-      title: 'QAOA mock · costo y factibilidad vs. profundidad p',
+      title: isReal ? 'QAOA · mejor costo factible y factibilidad vs. p' : 'QAOA mock · costo y factibilidad vs. p',
       xs: model.qaoa.x,
       xLabel: 'profundidad p',
       series: [
-        { name: 'Costo esperado', color: COL.coupling, values: model.qaoa.cost },
+        { name: 'QAOA (mejor factible)', color: COL.coupling, values: model.qaoa.cost },
         { name: 'Factibilidad', color: COL.L4, values: model.qaoa.feasibility, dash: '5 4' },
+        ...(isReal && model.exact
+          ? [{ name: 'Óptimo exacto', color: COL.muted, values: model.qaoa.x.map(() => model.exact.cost), dash: '3 3' }]
+          : []),
       ],
     }),
     lineChart({
-      title: 'Convergencia mock (costo vs. iteración)',
+      title: isReal ? 'Convergencia QAOA (energía vs. iteración)' : 'Convergencia mock (costo vs. iteración)',
       xs: model.iterations.x,
       xLabel: 'iteración',
       series: [
-        { name: 'Costo', color: COL.coupling, values: model.iterations.cost },
+        { name: isReal ? 'Energía ⟨H_C⟩' : 'Costo', color: COL.coupling, values: model.iterations.cost },
       ],
     }),
-    heatmap({
-      title: 'Matriz de acoplamiento (mock)',
-      nets: model.nets,
-      weights: model.weights,
-      conflicts: model.conflicts,
-    }),
-  ].join('');
+  ];
+  if (isReal && Array.isArray(model.distribution) && model.distribution.length) {
+    charts.push(histogram({ title: 'Distribución QAOA · top bitstrings', items: model.distribution }));
+  }
+  charts.push(heatmap({
+    title: isReal ? 'Matriz de acoplamiento W (geométrica)' : 'Matriz de acoplamiento (mock)',
+    nets: model.nets,
+    weights: model.weights,
+    conflicts: model.conflicts,
+  }));
+  document.getElementById('charts').innerHTML = charts.join('');
 }

@@ -338,7 +338,9 @@ Qollab** y nunca deben alterar el comportamiento de los archivos de runtime:
 - `dev/preview.html` — mock del runtime para previsualizar la UI en local.
 - `dev/model.json` — modelo mock exportado (generado por `scripts/export-model.sh`).
 - `scripts/preview.sh` — servidor estático para la vista local.
-- `scripts/export-model.sh` — regenera `dev/model.json` desde `quantum/pcb.py`.
+- `scripts/export-model.sh` — regenera `dev/model.json` (intenta el pipeline real; cae al
+  mock). Acepta `PYTHON=/ruta/bin/python` para usar un intérprete con qiskit/scipy.
+- `scripts/check_fastqaoa.py` — verifica que `quantum/fastqaoa.py` reproduce a `quantum/qaoa.py`.
 - `scripts/package.sh` — genera un `.zip` solo con los archivos de runtime para subir.
 
 `engine.js` sí es archivo de runtime (lo importa `main.js` con `./engine.js`).
@@ -354,12 +356,20 @@ Al empaquetar/subir, excluir `dev/`, `scripts/` y `AGENTS.md`.
 ```
 index.html               # solo contenido de <body>
 main.css                 # única hoja cargada (opcional)
-main.js                  # punto de entrada JS; llama al núcleo Python
+main.js                  # punto de entrada JS; llama al pipeline Python
 engine.js                # motor de render (SVG); importado con './engine.js'
-quantum/pcb.py           # núcleo Python (modelo/geometría) importado desde main.js
+quantum/pipeline.py      # une modelo + QAOA; devuelve el contrato del motor
+quantum/modelo.py        # modelo del equipo (vendorado, NO se modifica)
+quantum/qaoa.py          # QAOA de referencia (movido de main.py)
+quantum/fastqaoa.py      # QAOA rápido NumPy (lo usa el pipeline)
+quantum/pcb.py           # modelo MOCK (modo demo / respaldo)
 requirements.txt         # paquetes Python (Qiskit)
 README.md                # write-up (Project Card)
 ```
+
+**El QAOA ya está integrado** (no hay que reimplementarlo). `main.py` se movió a
+`quantum/qaoa.py`; su código se conserva para auditar. El pipeline usa `quantum/fastqaoa.py`
+por rendimiento (el navegador no tolera `QAOAAnsatz + Statevector`).
 
 Referencia para los otros dos tipos:
 
@@ -407,10 +417,12 @@ Un cambio no está terminado hasta que:
    en la raíz (proyecto JS), con la física en módulos Python (`quantum/…`) importados por
    `main.js` vía `callPromising`. Ver estructura en sección 7.
 2. **Alcance:** QuietTracE optimiza la **asignación de capas** (L1/L4) de las 9 redes de una
-   PCB **ADC08060 → FPGA**. La **optimización QUBO/Ising/QAOA la implementa el equipo de
-   física**; este repositorio aporta el **motor de visualización** (PCB antes/después +
-   gráficas de valor) con **datos mock** generados en `quantum/pcb.py`. El motor **no usa
-   `backend` ni envía jobs**.
+   PCB **ADC08060 → FPGA** con **QAOA**, ya integrado:
+   `quantum/pipeline.py` (modelo + QAOA) → `engine.js` (visualización). El modelo del equipo
+   vive en `quantum/modelo.py` (vendorado, no se modifica); `main.py` se movió a
+   `quantum/qaoa.py` y el pipeline usa `quantum/fastqaoa.py` (NumPy, exacto y rápido).
+   La optimización corre **localmente con statevector** (sin `backend`, sin jobs, sin
+   créditos). `quantum/pcb.py` queda como modelo **mock** (demo/respaldo).
 3. **Entrada de datos:** archivos del proyecto en el repo, siempre **< 2 MB** y con **rutas
    literales** en Python. Un dataset mayor iría por GET desde la web (sección 2.5).
 4. **Nombre de proyecto/usuario en Qollab:** pendiente (para el enlace público).

@@ -1,17 +1,30 @@
 // QuietTracE — punto de entrada JS (Qollab).
 //
-// `backend` existe (Qollab lo inyecta) pero este motor solo visualiza: NO envía
-// jobs ni gasta créditos. La optimización QUBO/Ising/QAOA la hace el equipo de
-// física; aquí solo se pintan datos mock.
-//
-// El modelo lo genera el módulo Python `quantum/pcb.py` y lo dibuja `engine.js`.
+// Corre el pipeline real: modelo (quantum/modelo.py) + QAOA (quantum/fastqaoa.py)
+// y dibuja el resultado con engine.js. `backend` no se usa (optimización local
+// con statevector); no se envían jobs ni se gastan créditos.
 
-import * as pcb from 'quantum.pcb'; // -> quantum/pcb.py
+import * as pipeline from 'quantum.pipeline'; // -> quantum/pipeline.py
 import { render } from './engine.js';
 
-// `.callPromising` es la forma correcta de llamar funciones Python propias (y
-// obligatoria en IonQ). `.toJs()` convierte el dict de Python a datos JS.
-const model = (await pcb.get_model.callPromising()).toJs();
+const status = document.getElementById('status');
+const setStatus = (t) => { if (status) status.textContent = t; };
 
-render(model);
-console.log('QuietTracE · modelo mock', JSON.stringify(model.meta));
+setStatus('Ejecutando el pipeline (modelo + QAOA)… puede tardar unos segundos.');
+
+try {
+  const model = (await pipeline.get_model.callPromising()).toJs();
+  render(model);
+
+  setStatus(
+    model.source === 'qaoa'
+      ? `QAOA listo · ${model.meta.num_qubits} qubits · p=${model.meta.reps} · `
+        + `costo ${Number(model.costs.after.total).toFixed(3)} (óptimo ${Number(model.exact.cost).toFixed(3)}) · `
+        + `gap ${(Number(model.meta.approx_gap) * 100).toFixed(1)}%`
+      : 'Modelo listo.'
+  );
+  console.log('QuietTracE · pipeline', JSON.stringify(model.meta));
+} catch (err) {
+  setStatus(`Error en el pipeline: ${err}`);
+  console.error(err);
+}
