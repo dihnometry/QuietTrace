@@ -605,6 +605,10 @@ function loadingBoard(title) {
   </svg>`;
 }
 
+function loadingCard(title) {
+  return chartCard(title, '<div style="height:170px;display:flex;align-items:center;justify-content:center;color:' + COL.muted + '">Running QAOA…</div>');
+}
+
 // Fast pre-QAOA view: BEFORE + things that do not depend on QAOA; AFTER/QAOA = loading.
 function renderLoading(model) {
   const maps = {
@@ -640,6 +644,9 @@ function renderLoading(model) {
       { name: 'Conflicts', value: b.conflict_cost, color: COL.conflictCost },
     ] }],
   }));
+  CHART_SOURCE = 'QAOA';
+  charts.push(loadingCard('Circuit distribution'));
+  charts.push(loadingCard('QAOA convergence · energy ⟨H_C⟩'));
   CHART_SOURCE = 'theoretical';
   charts.push(combosCard('log'));
   CHART_SOURCE = 'geometric';
