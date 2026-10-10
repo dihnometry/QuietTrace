@@ -1,49 +1,21 @@
 // QuietTracE — motor de visualización (render puro, sin datos).
 //
 // `render(model)` dibuja la PCB (2D planta + 3D stackup) antes/después y las
-// gráficas de valor, con animación de construcción. Soporta dos temas.
+// gráficas de valor, con animación de construcción.
 //
-// NO implementa la optimización QUBO/Ising/QAOA. No usa `backend` ni envía jobs.
+// Tema único "Hybrid": negro + verde neón, bordes nítidos, glow y liquid glass.
+// NO usa `backend` ni envía jobs.
 
-const THEMES = {
-  // 1) Minimalista monoespaciado, negro puro y verde neón (estilo an.otherdev.xyz)
-  otherdev: {
-    board: '#000000',
-    block: '#141414', blockEdge: '#3a3a3a', blockSide: '#0e0e0e', blockSideDark: '#080808',
-    grid: '#262626',
-    text: '#cfcfd6', muted: '#8b8b95',
-    L1: '#54ff57', L4: '#ff6fae', conflict: '#ff5b5b',
-    coupling: '#54ff57', viaCost: '#ff6fae', conflictCost: '#ff5b5b',
-    chartBg: '#070707', heatLow: '#121212',
-    L1fill: '#0f1c0f', L2fill: '#141414', L3fill: '#141414', L4fill: '#1f1118',
-  },
-  // 2) Frutiger Aero / sci-fi AI: cristal, cielo→turquesa, brillos y glow
-  aero: {
-    board: '#08192b',
-    block: 'rgba(130,205,255,0.20)', blockEdge: 'rgba(180,225,255,0.45)',
-    blockSide: 'rgba(90,170,235,0.16)', blockSideDark: 'rgba(50,120,190,0.16)',
-    grid: 'rgba(120,200,255,0.22)',
-    text: '#eaf6ff', muted: '#9fc3dd',
-    L1: '#38e0ff', L4: '#ffcf5c', conflict: '#ff4d7d',
-    coupling: '#38e0ff', viaCost: '#ffcf5c', conflictCost: '#ff4d7d',
-    chartBg: 'rgba(3,14,24,0.55)', heatLow: '#0a2136',
-    L1fill: '#0e3345', L2fill: '#16283a', L3fill: '#16283a', L4fill: '#3a2f14',
-  },
-  // 3) Híbrido: colores y bordes nítidos de OtherDev + glow de Frutiger Aero
-  hybrid: {
-    board: '#000000',
-    block: '#0f0f0f', blockEdge: '#3a3a3a', blockSide: '#0a0a0a', blockSideDark: '#060606',
-    grid: '#262626',
-    text: '#cfcfd6', muted: '#8b8b95',
-    L1: '#54ff57', L4: '#ff6fae', conflict: '#ff5b5b',
-    coupling: '#54ff57', viaCost: '#ff6fae', conflictCost: '#ff5b5b',
-    chartBg: '#080808', heatLow: '#101010',
-    L1fill: '#0f1c0f', L2fill: '#141414', L3fill: '#141414', L4fill: '#1f1118',
-  },
+const COL = {
+  board: '#000000',
+  block: '#141414', blockEdge: '#4a4a4a', blockSide: '#0c0c0c', blockSideDark: '#080808',
+  grid: '#3a3a3a',
+  text: '#e9e9f0', muted: '#a8a8b4',
+  L1: '#54ff57', L4: '#ff6fae', conflict: '#ff6b6b',
+  coupling: '#54ff57', viaCost: '#ff6fae', conflictCost: '#ff6b6b',
+  chartBg: '#0b0b0b', heatLow: '#161616',
+  L1fill: '#102010', L2fill: '#171717', L3fill: '#171717', L4fill: '#241420',
 };
-
-let currentTheme = 'hybrid';
-let COL = THEMES[currentTheme];
 
 const fmt = (n, d = 2) => Number(n).toFixed(d);
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -285,9 +257,14 @@ function board3d(model, maps, assignment, title) {
 
 // --- gráficas ---------------------------------------------------------------
 
+let CHART_SOURCE = '';
+
 function chartCard(title, inner) {
   const dly = (CHART_IDX++ * 0.09).toFixed(2);
-  return `<div class="chart" style="animation-delay:${dly}s"><h3>${esc(title)}</h3>${inner}</div>`;
+  const badge = CHART_SOURCE
+    ? `<span class="chart-src${CHART_SOURCE === 'mock' ? ' mock' : ''}">${esc(CHART_SOURCE)}</span>`
+    : '';
+  return `<div class="chart" style="animation-delay:${dly}s"><h3>${esc(title)} ${badge}</h3>${inner}</div>`;
 }
 
 function lineChart({ title, xs, series, xLabel = '', w = 560, h = 306 }) {
@@ -489,9 +466,6 @@ function finishTraces(root) {
 // --- render -----------------------------------------------------------------
 
 export function render(model) {
-  COL = THEMES[currentTheme] || THEMES.aero;
-  if (typeof document !== 'undefined') document.documentElement.dataset.theme = currentTheme;
-
   const nidx = Object.fromEntries(model.nets.map((n, i) => [n, i]));
   const maps = {
     nidx,
@@ -527,15 +501,6 @@ export function render(model) {
     };
   });
 
-  document.querySelectorAll('.theme-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.theme === currentTheme);
-    btn.onclick = () => {
-      if (btn.dataset.theme === currentTheme) return;
-      currentTheme = btn.dataset.theme;
-      render(model);
-    };
-  });
-
   const isReal = model.source === 'qaoa';
   const cards = [
     statCard('Costo antes', fmt(b.total), 'corte + vías + conflictos', COL.coupling),
@@ -555,69 +520,80 @@ export function render(model) {
   document.getElementById('stats').innerHTML = cards.join('');
 
   CHART_IDX = 0;
-  const charts = [
-    stackedBars({
-      title: 'Desglose de costo',
-      rows: [
-        { label: 'Antes', total: b.total, segments: [
-          { name: 'Acoplamiento', value: b.coupling, color: COL.coupling },
-          { name: 'Vías', value: b.via_cost, color: COL.viaCost },
-          { name: 'Conflictos', value: b.conflict_cost, color: COL.conflictCost },
-        ] },
-        { label: 'Después', total: a.total, segments: [
-          { name: 'Acoplamiento', value: a.coupling, color: COL.coupling },
-          { name: 'Vías', value: a.via_cost, color: COL.viaCost },
-          { name: 'Conflictos', value: a.conflict_cost, color: COL.conflictCost },
-        ] },
-      ],
-    }),
-    lineChart({
-      title: 'Costo vs. λv (costo por vía)',
-      xs: model.lambda_sweep.x,
-      xLabel: 'λv',
-      series: [
-        { name: 'Antes', color: COL.conflict, values: model.lambda_sweep.before },
-        { name: 'Después', color: COL.L4, values: model.lambda_sweep.after },
-      ],
-    }),
-    lineChart({
-      title: 'Costo vs. M (penalización de conflicto)',
-      xs: model.m_sweep.x,
-      xLabel: 'M',
-      series: [
-        { name: 'Antes', color: COL.conflict, values: model.m_sweep.before },
-        { name: 'Después', color: COL.L4, values: model.m_sweep.after },
-      ],
-    }),
-    lineChart({
-      title: isReal ? 'QAOA · mejor costo factible y factibilidad vs. p' : 'QAOA mock · costo y factibilidad vs. p',
-      xs: model.qaoa.x,
-      xLabel: 'profundidad p',
-      series: [
-        { name: 'QAOA (mejor factible)', color: COL.coupling, values: model.qaoa.cost },
-        { name: 'Factibilidad', color: COL.L4, values: model.qaoa.feasibility, dash: '5 4' },
-        ...(isReal && model.exact
-          ? [{ name: 'Óptimo exacto', color: COL.muted, values: model.qaoa.x.map(() => model.exact.cost), dash: '3 3' }]
-          : []),
-      ],
-    }),
-    lineChart({
-      title: isReal ? 'Convergencia QAOA (energía vs. iteración)' : 'Convergencia mock (costo vs. iteración)',
-      xs: model.iterations.x,
-      xLabel: 'iteración',
-      series: [
-        { name: isReal ? 'Energía ⟨H_C⟩' : 'Costo', color: COL.coupling, values: model.iterations.cost },
-      ],
-    }),
-  ];
+  const charts = [];
+
+  CHART_SOURCE = isReal ? 'modelo' : 'mock';
+  charts.push(stackedBars({
+    title: 'Desglose de costo',
+    rows: [
+      { label: 'Antes', total: b.total, segments: [
+        { name: 'Acoplamiento', value: b.coupling, color: COL.coupling },
+        { name: 'Vías', value: b.via_cost, color: COL.viaCost },
+        { name: 'Conflictos', value: b.conflict_cost, color: COL.conflictCost },
+      ] },
+      { label: 'Después', total: a.total, segments: [
+        { name: 'Acoplamiento', value: a.coupling, color: COL.coupling },
+        { name: 'Vías', value: a.via_cost, color: COL.viaCost },
+        { name: 'Conflictos', value: a.conflict_cost, color: COL.conflictCost },
+      ] },
+    ],
+  }));
+
+  CHART_SOURCE = 'analítico';
+  charts.push(lineChart({
+    title: 'Costo vs. λv (costo por vía)',
+    xs: model.lambda_sweep.x,
+    xLabel: 'λv',
+    series: [
+      { name: 'Antes', color: COL.conflict, values: model.lambda_sweep.before },
+      { name: 'Después', color: COL.L4, values: model.lambda_sweep.after },
+    ],
+  }));
+  charts.push(lineChart({
+    title: 'Costo vs. M (penalización de conflicto)',
+    xs: model.m_sweep.x,
+    xLabel: 'M',
+    series: [
+      { name: 'Antes', color: COL.conflict, values: model.m_sweep.before },
+      { name: 'Después', color: COL.L4, values: model.m_sweep.after },
+    ],
+  }));
+
+  CHART_SOURCE = isReal ? 'QAOA' : 'mock';
+  charts.push(lineChart({
+    title: isReal ? 'QAOA · mejor costo factible y factibilidad vs. p' : 'QAOA mock · costo y factibilidad vs. p',
+    xs: model.qaoa.x,
+    xLabel: 'profundidad p',
+    series: [
+      { name: 'QAOA (mejor factible)', color: COL.coupling, values: model.qaoa.cost },
+      { name: 'Factibilidad', color: COL.L4, values: model.qaoa.feasibility, dash: '5 4' },
+      ...(isReal && model.exact
+        ? [{ name: 'Óptimo exacto', color: COL.muted, values: model.qaoa.x.map(() => model.exact.cost), dash: '3 3' }]
+        : []),
+    ],
+  }));
+  charts.push(lineChart({
+    title: isReal ? 'Convergencia QAOA (energía vs. iteración)' : 'Convergencia mock (costo vs. iteración)',
+    xs: model.iterations.x,
+    xLabel: 'iteración',
+    series: [
+      { name: isReal ? 'Energía ⟨H_C⟩' : 'Costo', color: COL.coupling, values: model.iterations.cost },
+    ],
+  }));
+
   if (isReal && Array.isArray(model.distribution) && model.distribution.length) {
+    CHART_SOURCE = 'QAOA';
     charts.push(histogram({ title: 'Distribución QAOA · top bitstrings', items: model.distribution }));
   }
+
+  CHART_SOURCE = isReal ? 'geométrica' : 'mock';
   charts.push(heatmap({
     title: isReal ? 'Matriz de acoplamiento W (geométrica)' : 'Matriz de acoplamiento (mock)',
     nets: model.nets,
     weights: model.weights,
     conflicts: model.conflicts,
   }));
+
+  CHART_SOURCE = '';
   document.getElementById('charts').innerHTML = charts.join('');
 }

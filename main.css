@@ -1,72 +1,23 @@
 /* =====================================================================
-   QuietTracE — estilos con tres temas:
-   · aero     : Frutiger Aero / sci-fi AI (cristal, cielo→turquesa, glow)
-   · otherdev : minimalista monoespaciado, negro puro, verde neón
-   · hybrid   : negro puro + verde neón (OtherDev) con glow Aero y liquid glass.
-                Es el tema POR DEFECTO cuando no hay data-theme (o es desconocido).
+   QuietTracE — tema "Hybrid":
+   esquema de color y bordes nítidos (negro + verde neón) + glow estilo
+   Frutiger Aero + liquid glass. Tema único del proyecto.
    ===================================================================== */
 
-/* Por defecto (sin data-theme, o uno desconocido) = híbrido:
-   esquema OtherDev (negro puro + verde neón) con glow Aero + liquid glass. */
 :root {
   --bg: #000000;
-  --fg: #cfcfd6;
-  --muted: #8b8b95;
-  --card: rgba(255, 255, 255, 0.05);
-  --panel: rgba(255, 255, 255, 0.035);
-  --edge: #2e2e2e;
-  --accent: #54ff57;
-  --radius: 6px;
-  --font: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  --blur: blur(12px) saturate(1.4);
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-}
-
-html[data-theme="aero"] {
-  --bg: #04121f;
-  --fg: #eaf6ff;
-  --muted: #9fc3dd;
+  --fg: #e9e9f0;
+  --muted: #a8a8b4;
   --card: rgba(255, 255, 255, 0.06);
   --panel: rgba(255, 255, 255, 0.045);
-  --edge: rgba(255, 255, 255, 0.16);
-  --accent: #38e0ff;
-  --radius: 18px;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --shadow: 0 18px 50px rgba(0, 20, 40, 0.45);
-  --blur: blur(12px) saturate(1.25);
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-html[data-theme="otherdev"] {
-  --bg: #000000;
-  --fg: #cfcfd6;
-  --muted: #8b8b95;
-  --card: #0a0a0a;
-  --panel: #0a0a0a;
-  --edge: #2e2e2e;
+  --edge: #464646;
+  --edge-soft: #2f2f2f;
   --accent: #54ff57;
-  --radius: 6px;
-  --font: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
-  --shadow: none;
-  --blur: none;
-  --glass-inset: none;
-}
-
-/* Híbrido explícito: mismo esquema que el default, con superficies de cristal. */
-html[data-theme="hybrid"] {
-  --bg: #000000;
-  --fg: #cfcfd6;
-  --muted: #8b8b95;
-  --card: rgba(255, 255, 255, 0.05);
-  --panel: rgba(255, 255, 255, 0.035);
-  --edge: #2e2e2e;
-  --accent: #54ff57;
+  --accent-dim: rgba(84, 255, 87, 0.55);
   --radius: 6px;
   --font: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   --blur: blur(12px) saturate(1.4);
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
 * { box-sizing: border-box; }
@@ -75,31 +26,15 @@ body {
   margin: 0;
   padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 2.5rem;
   font-family: var(--font);
-  background: var(--bg);
   color: var(--fg);
-}
-
-html[data-theme="aero"] body {
   background:
-    radial-gradient(1200px 700px at 12% -12%, rgba(56, 224, 255, 0.22), transparent 60%),
-    radial-gradient(1000px 820px at 102% -4%, rgba(185, 140, 255, 0.20), transparent 55%),
-    radial-gradient(900px 700px at 50% 118%, rgba(0, 255, 198, 0.12), transparent 60%),
-    linear-gradient(180deg, #04121f, #03101b 62%, #02090f);
-  background-attachment: fixed;
-}
-
-html[data-theme="otherdev"] body { background: #000; }
-html[data-theme="otherdev"] ::selection { background: #54ff57; color: #000; }
-
-/* híbrido: negro puro con un levísimo halo verde neón detrás del cristal */
-html[data-theme="hybrid"] body {
-  background:
-    radial-gradient(900px 620px at 50% -12%, rgba(84, 255, 87, 0.07), transparent 62%),
-    radial-gradient(1100px 760px at 104% -4%, rgba(84, 255, 87, 0.04), transparent 56%),
+    radial-gradient(900px 620px at 50% -12%, rgba(84, 255, 87, 0.08), transparent 62%),
+    radial-gradient(1100px 760px at 104% -4%, rgba(84, 255, 87, 0.05), transparent 56%),
     #000;
   background-attachment: fixed;
 }
-html[data-theme="hybrid"] ::selection { background: #54ff57; color: #000; }
+
+::selection { background: #54ff57; color: #000; }
 
 /* cabecera */
 .head {
@@ -110,21 +45,12 @@ html[data-theme="hybrid"] ::selection { background: #54ff57; color: #000; }
   justify-content: space-between;
   margin-bottom: 1.5rem;
 }
-.head-main h1 { margin: 0 0 0.25rem; font-size: clamp(1.5rem, 3vw, 2rem); }
-html[data-theme="aero"] .head-main h1 {
-  text-shadow: 0 0 18px rgba(56, 224, 255, 0.55), 0 0 40px rgba(56, 224, 255, 0.25);
-}
-html[data-theme="otherdev"] .head-main h1 { text-shadow: 0 0 8px rgba(84, 255, 87, 0.4); letter-spacing: -0.02em; }
-
-/* híbrido (y default sin tema / tema desconocido): glow Frutiger Aero en clave verde sobre negro.
-   No afecta a aero ni a otherdev, que tienen sus propias reglas. */
-html:not([data-theme="aero"]):not([data-theme="otherdev"]) .head-main h1 {
+.head-main h1 {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.5rem, 3vw, 2rem);
   letter-spacing: -0.02em;
-  text-shadow:
-    0 0 10px rgba(84, 255, 87, 0.45),
-    0 0 30px rgba(84, 255, 87, 0.22);
+  text-shadow: 0 0 10px rgba(84, 255, 87, 0.5), 0 0 30px rgba(84, 255, 87, 0.25);
 }
-
 .subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
 .mock-tag {
@@ -136,41 +62,7 @@ html:not([data-theme="aero"]):not([data-theme="otherdev"]) .head-main h1 {
   color: var(--accent);
 }
 
-/* conmutador de tema */
-.theme-switch {
-  display: flex;
-  gap: 0.35rem;
-  padding: 3px;
-  border: 1px solid var(--edge);
-  border-radius: 999px;
-  background: var(--panel);
-}
-.theme-btn {
-  font: inherit;
-  font-size: 0.78rem;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-  padding: 5px 12px;
-  cursor: pointer;
-}
-.theme-btn:hover { color: var(--fg); }
-.theme-btn.active {
-  color: #000;
-  background: var(--accent);
-  font-weight: 700;
-}
-html[data-theme="aero"] .theme-btn.active { color: #04121f; }
-html[data-theme="otherdev"] .theme-btn.active { color: #000; }
-html[data-theme="hybrid"] .theme-btn.active {
-  color: #000;
-  box-shadow:
-    0 0 10px rgba(84, 255, 87, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-/* superficies */
+/* superficies — liquid glass (cristal negro) con borde nítido */
 .panel,
 .stat,
 .chart {
@@ -178,40 +70,30 @@ html[data-theme="hybrid"] .theme-btn.active {
   border: 1px solid var(--edge);
   border-radius: var(--radius);
 }
-html[data-theme="aero"] .panel,
-html[data-theme="aero"] .stat,
-html[data-theme="aero"] .chart {
-  -webkit-backdrop-filter: var(--blur);
-  backdrop-filter: var(--blur);
-  box-shadow: var(--shadow), var(--glass-inset);
-}
 
-/* híbrido: liquid glass — cristal negro translúcido con borde nítido y brillo especular.
-   El borde 1px de --edge se conserva encima del cristal. */
-html[data-theme="hybrid"] .panel,
-html[data-theme="hybrid"] .stat,
-html[data-theme="hybrid"] .chart,
-html[data-theme="hybrid"] .theme-switch {
+.panel,
+.stat,
+.chart {
   position: relative;
   background:
     linear-gradient(
       180deg,
       rgba(255, 255, 255, 0.075),
-      rgba(255, 255, 255, 0.030) 42%,
-      rgba(255, 255, 255, 0.012)
+      rgba(255, 255, 255, 0.032) 42%,
+      rgba(255, 255, 255, 0.014)
     );
   -webkit-backdrop-filter: var(--blur);
   backdrop-filter: var(--blur);
   box-shadow:
-    0 18px 50px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
-    inset 0 0 24px rgba(255, 255, 255, 0.02);
+    0 18px 50px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 24px rgba(255, 255, 255, 0.025);
 }
 
-/* barrido de brillo muy sutil sobre el cristal (solo contenedores de bloque) */
-html[data-theme="hybrid"] .panel::after,
-html[data-theme="hybrid"] .chart::after {
+/* barrido de brillo muy sutil sobre el cristal */
+.panel::after,
+.chart::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -220,7 +102,7 @@ html[data-theme="hybrid"] .chart::after {
   background: linear-gradient(
     115deg,
     transparent 32%,
-    rgba(255, 255, 255, 0.055) 48%,
+    rgba(255, 255, 255, 0.06) 48%,
     transparent 64%
   );
   background-size: 260% 100%;
@@ -245,13 +127,17 @@ html[data-theme="hybrid"] .chart::after {
   flex-direction: column;
   gap: 2px;
 }
-.stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.stat-value { font-size: 1.35rem; font-weight: 650; }
-html[data-theme="hybrid"] .stat-value {
-  color: #eafff0;
-  text-shadow:
-    0 0 10px rgba(84, 255, 87, 0.5),
-    0 0 26px rgba(84, 255, 87, 0.2);
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f2fff4;
+  text-shadow: 0 0 10px rgba(84, 255, 87, 0.45), 0 0 26px rgba(84, 255, 87, 0.18);
 }
 .stat-sub { font-size: 0.76rem; color: var(--muted); }
 
@@ -275,26 +161,16 @@ html[data-theme="hybrid"] .stat-value {
   padding: 4px 12px;
   cursor: pointer;
 }
-.tab:hover { border-color: var(--accent); }
+.tab:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(84, 255, 87, 0.35), inset 0 0 8px rgba(84, 255, 87, 0.14);
+}
 .tab.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #000;
-  font-weight: 600;
-}
-html[data-theme="aero"] .tab.active { color: #04121f; }
-html[data-theme="otherdev"] .tab.active { color: #000; }
-
-/* híbrido: glow Aero en pestañas (activa + hover) */
-html[data-theme="hybrid"] .tab.active {
-  box-shadow:
-    0 0 10px rgba(84, 255, 87, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-html[data-theme="hybrid"] .tab:hover {
-  box-shadow:
-    0 0 10px rgba(84, 255, 87, 0.35),
-    inset 0 0 8px rgba(84, 255, 87, 0.14);
+  font-weight: 700;
+  box-shadow: 0 0 12px var(--accent-dim), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .boards {
@@ -328,6 +204,9 @@ html[data-theme="hybrid"] .tab:hover {
   border-top: 1px solid var(--edge);
   padding-top: 0.9rem;
 }
+
+/* estado del pipeline */
+.status { margin: 0 0 1.5rem; color: var(--accent); font-size: 0.85rem; }
 
 /* --- animaciones de construcción --- */
 
@@ -387,13 +266,25 @@ html[data-theme="hybrid"] .tab:hover {
     stroke-dasharray: none;
   }
   .trace { stroke-dasharray: none; }
-  html[data-theme="hybrid"] .panel::after,
-  html[data-theme="hybrid"] .chart::after {
-    animation: none !important;
-  }
+  .panel::after, .chart::after { animation: none !important; }
 }
 
-/* estado del pipeline */
-.status { margin: 0 0 1.5rem; color: var(--muted); font-size: 0.85rem; }
-html[data-theme="hybrid"] .status,
-html[data-theme="aero"] .status { color: var(--accent); }
+/* etiqueta de origen de datos de cada gráfica */
+.chart-src {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 1px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  vertical-align: middle;
+}
+.chart-src.mock {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.55);
+  background: rgba(255, 107, 107, 0.08);
+}
