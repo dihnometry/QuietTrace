@@ -31,6 +31,13 @@ try {
       model.costs.after = over.costs_after;
       model.assignments.after = over.assignments_after;
       model.assignments.after_layers = over.assignments_after_layers;
+      // comparison metrics (ideal vs backend)
+      model.tvd = over.tvd;
+      model.success_ideal = over.success_ideal;
+      model.success_backend = over.success_backend;
+      model.valid_ideal = over.valid_ideal;
+      model.valid_backend = over.valid_backend;
+      model.measured_energy = over.measured_energy;
 
       render(model);
       renderBackend(q, model);

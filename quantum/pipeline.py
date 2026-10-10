@@ -96,14 +96,27 @@ def _ising_energy(bits, J, h):
 
 def _dist_stats(dist, J, h):
     """Metricas sobre la distribucion COMPLETA (no truncada)."""
-    expected = sum(d["prob"] * d["cost"] for d in dist)
     energy = sum(d["prob"] * _ising_energy(d["x"], J, h) for d in dist)
     valid = sum(d["prob"] for d in dist if d["feasible"])
     return {
-        "expected_cost": round(expected, 6),
         "measured_energy": round(energy, 6),
         "valid_mass": round(valid, 6),
     }
+
+
+def _index_from_bits(bits):
+    return sum((1 << i) for i, b in enumerate(bits) if b)
+
+
+def _feasible_mask(n, conflicts):
+    mask = np.ones(1 << n, dtype=bool)
+    for k in range(1 << n):
+        bits = _bits_from_index(k, n)
+        for (i, j) in conflicts:
+            if bits[i] == bits[j]:
+                mask[k] = False
+                break
+    return mask
 
 
 def _layer_members(bits, nets):
@@ -149,6 +162,23 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER):
 
     counts = {str(k): int(v) for k, v in counts.items()}
     derived = _fields_from_counts(counts, prob, len(prob["nets"]))
+
+    # comparison metrics: ideal (|psi|^2) vs backend (measured counts)
+    n = len(prob["nets"])
+    optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                             prob["conflicts"], prob["M"])[1]]
+    P = np.asarray(qa["probabilities"], dtype=float)
+    Q = np.zeros(1 << n, dtype=float)
+    tcounts = sum(counts.values()) or 1
+    for key, cnt in counts.items():
+        Q[_index_from_bits(_bits_from_key(key, n))] += cnt / tcounts
+    mask = _feasible_mask(n, prob["conflicts"])
+    opt_idx = _index_from_bits(optimal)
+    derived["tvd"] = round(float(0.5 * np.sum(np.abs(P - Q))), 6)
+    derived["success_ideal"] = round(float(P[opt_idx]), 6)
+    derived["success_backend"] = round(float(Q[opt_idx]), 6)
+    derived["valid_ideal"] = round(float(P[mask].sum()), 6)
+    derived["valid_backend"] = round(float(Q[mask].sum()), 6)
 
     return {
         "counts": counts,
@@ -218,8 +248,10 @@ def get_model():
     best = _best_feasible(dist)
 
     # --- exact reference (for the status line) ---
-    exact_cost, _ = M.solve_exact(W, vias, lam_v, conflicts, Mpen)
+    exact_cost, exact_bits = M.solve_exact(W, vias, lam_v, conflicts, Mpen)
+    exact_bits = [int(b) for b in exact_bits]
     gap = (best["cost"] - exact_cost) / max(abs(exact_cost), 1e-9)
+    success_ideal = round(sum(d["prob"] for d in dist if d["x"] == exact_bits), 6)
 
     # --- before (all L1) / after (QAOA) ---
     before_bits = [0] * n
@@ -282,6 +314,7 @@ def get_model():
         },
         "distribution": dist[:32],
         "distribution_source": "ideal",
+        "success_ideal": success_ideal,
         "solutions": solutions,
         **_dist_stats(dist, prob["J"], prob["h"]),
     }

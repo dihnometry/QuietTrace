@@ -640,9 +640,14 @@ export function render(model) {
     <div class="stat-bar"><span style="width:${Math.max(0, Math.min(100, improvement)).toFixed(0)}%"></span></div>
     <span class="stat-sub">vs baseline</span>
   </div>`);
-  if (model.expected_cost != null) {
-    cards.push(statCard('Expected cost', fmt(model.expected_cost),
-      model.valid_mass != null ? `${fmt(model.valid_mass * 100, 1)}% valid samples` : '', COL.L4));
+  const pct = (v) => (v == null ? '—' : `${fmt(v * 100, 1)}%`);
+  if (model.tvd != null) {
+    cards.push(statCard('Model distance (TVD)', fmt(model.tvd, 3), 'ideal vs backend', COL.conflict));
+    cards.push(statCard('Success rate', `${pct(model.success_ideal)} → ${pct(model.success_backend)}`, 'ideal → backend', COL.coupling));
+    cards.push(statCard('Valid', `${pct(model.valid_ideal)} → ${pct(model.valid_backend)}`, 'ideal → backend', COL.L4));
+  } else if (model.success_ideal != null) {
+    cards.push(statCard('Success rate', pct(model.success_ideal), 'on the optimum', COL.coupling));
+    cards.push(statCard('Valid', pct(model.valid_mass), 'feasible samples', COL.L4));
   }
   document.getElementById('stats').innerHTML = cards.join('');
 
