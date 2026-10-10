@@ -76,12 +76,25 @@ class Handler(SimpleHTTPRequestHandler):
                 shots = int(_opt(q, "shots") or 1024)
                 return self._send(200, pipeline.run_backend(
                     BasicSimulator(), shots, pipeline.REPS, pipeline.MAXITER, kind, init_deg, order))
-            self.send_error(404)
+            return self._send(404, {"error": f"unknown endpoint {url.path}"})
         except Exception as exc:  # noqa: BLE001
             self._send(500, {"error": f"{type(exc).__name__}: {exc}"})
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    start = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    httpd = None
+    port = start
+    for _ in range(25):
+        try:
+            httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            break
+        except OSError:
+            port += 1
+    if httpd is None:
+        raise SystemExit("no free port found (tried 25)")
+    if port != start:
+        print(f"(port {start} busy; using {port})")
     print(f"QuietTracE dev server:  http://localhost:{port}/dev/app-local.html")
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    print(f"  check: curl 'http://localhost:{port}/api/model?kind=1adc'")
+    httpd.serve_forever()

@@ -19,7 +19,5 @@ fi
 
 PORT="${1:-8000}"
 
-echo "QuietTracE dynamic local preview"
-echo "  python: $PY"
-echo "  open:   http://localhost:${PORT}/dev/app-local.html"
+echo "QuietTracE dynamic local preview  (python: $PY)"
 exec "$PY" scripts/devserver.py "$PORT"
