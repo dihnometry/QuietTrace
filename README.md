@@ -4,7 +4,7 @@
 
 # QuietTrace: Quantum Layer Assignment to Reduce PCB Crosstalk
 
-**Theme:** <!-- TODO: Quantum Impact / other --> · **Status:** Hackathon submission (Qollab) · [Project page on Qollab](https://qollab.xyz) <!-- TODO: exact project URL -->
+**Theme:** Quantum Impact· **Status:** Hackathon submission (Qollab) · [Project page on Qollab](https://qollab.xyz) <!-- TODO: exact project URL -->
 
 **In one line:** QuietTrace decides which nets of an ADC→FPGA bus go on the top layer (L1) and which on the bottom layer (L4), using **coupling weights computed from a COMSOL electrostatic simulation**, and solves the assignment with QAOA. It finds the exact optimum in 10/10 runs at 9 qubits and 8/10 at 18 qubits (simulated). **Classical search is faster at both sizes, and we do not claim a quantum speedup.**
 
@@ -25,26 +25,20 @@ It is for PCB designers of mixed-signal and high-speed boards who need to decide
 
 What sets this apart from a generic "toy" Max-Cut is where the numbers come from: the weights are not made up or purely geometric. They come from **COMSOL 6.1 mutual-capacitance simulations** (section 3), so the cost function follows a physical quantity that a hardware engineer recognises.
 
-<!-- TODO: add an "impact" table from the app's cost breakdown, like this:
-| Problem | Total coupling, all nets on L1 | Total coupling after QuietTrace | Reduction |
-| 1 ADC (9 nets) | X | Y | Z% |
-| 2 ADC (18 nets) | X | Y | Z% |
-Use the real BEFORE/AFTER numbers the UI already shows, and say they are model values (capacitive proxy), not measured crosstalk. -->
-
 ## 3. How does it work?
 
 ![Pipeline: COMSOL capacitance, weights, Ising cost, QAOA, best feasible assignment](docs/img/how_it_works.png)
 
-**Cost.** One binary variable per net, $x_i \in \lbrace 0, 1 \rbrace$ (0 = L1, 1 = L4):
+**Cost.** One binary variable per net, $x_i \in [0, 1]$ (0 = L1, 1 = L4):
 
 $$
-C(\mathbf{x}) = \sum_{i<j} W_{ij}\,[x_i = x_j] \;+\; \lambda \sum_{(i,j)\in\mathcal{K}} [x_i = x_j]
+C(\mathbf{x}) = \sum_{i \lt j} W_{ij}\,[x_i = x_j] \;+\; \lambda \sum_{(i,j)\in\mathcal{K}} [x_i = x_j]
 $$
 
 where $[\cdot]$ is 1 if the condition holds and 0 otherwise, $W_{ij}$ is the coupling weight between nets $i$ and $j$, $\mathcal{K}$ is the set of pairs whose routes cross, and $\lambda$ is the conflict penalty (the **Conflict weight** in the UI). This maps to the Ising Hamiltonian
 
 $$
-H = \sum_{i<j} J_{ij}\, Z_i Z_j + \sum_i h_i\, Z_i ,
+H = \sum_{i \lt j} J_{ij}\, Z_i Z_j + \sum_i h_i\, Z_i ,
 $$
 
 which is the QAOA cost operator.
@@ -59,17 +53,9 @@ where $s(\ell)$ is the spacing between the two traces at position $\ell$ along t
 
 (`quantum/capacitance.py`: log-log interpolation between the simulated gaps and a power-law tail beyond them.) Qollab uses only these COMSOL weights. A purely geometric heuristic (`modelo.geometric_weights`) remains in the code as a fallback for the local dev preview. The COMSOL weights are a **quasi-electrostatic proxy**: they capture capacitive coupling only. Inductive coupling and signal rise times are not modeled.
 
-<!-- TODO: add the COMSOL curve C'_m(s) and the W_geometric vs W_COMSOL comparison, exported from notebooks/quiettrace_experiments.ipynb (section 9), as docs/img/comsol_curve.png and docs/img/weights_comparison.png, then embed them here. -->
-
 **QAOA.** `quantum/fastqaoa.py` simulates the QAOA ansatz exactly in NumPy and optimizes the angles with COBYLA. The reference implementation with Qiskit's `QAOAAnsatz` is kept in `quantum/qaoa.py` for auditing; the fast version is used because the Qiskit statevector path is far too slow in the browser. The best *feasible* sample (no crossing conflict violated) is drawn on the PCB as BEFORE (all lines on L1) vs AFTER.
 
 **On hardware.** After local optimization, one QAOA circuit is submitted with `backend.run` (IonQ allows one job per run on Qollab). The UI then shows ideal vs backend distributions.
-
-<!-- TODO: if you have an IonQ run, add a table like
-|  | P(valid assignment) | P(optimal) |
-| Ideal simulator | .. | .. |
-| IonQ <device>, N shots | .. | .. |
-and link the exported console output. Report it even if the hardware result is poor. -->
 
 ## 4. How do I run it?
 
@@ -179,11 +165,11 @@ Python (Qiskit, NumPy, SciPy) for the model and QAOA; plain HTML, CSS and JavaSc
 
 ## Team and acknowledgements
 
-<!-- TODO: team members, node/track, COMSOL license or institution if applicable. -->
+- Alejandro Agudelo González
+- Manuela Gómez Colorado
+- José Luis Manco Velázquez
+- Violeta Soto Martínez
 
-## Disclosure
-
-<!-- TODO: say which AI tools were used and for what, which parts are prior code (if any), and which parts are the team's own work. -->
 
 ## References
 
