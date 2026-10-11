@@ -17,6 +17,7 @@ Then open  http://localhost:8000/dev/app-local.html
 import json
 import os
 import sys
+import importlib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -37,6 +38,38 @@ except Exception as exc:  # noqa: BLE001
 def _opt(q, key):
     v = q.get(key, [""])[0]
     return v or None
+
+
+# --- auto-reload: el servidor importa quantum/* una vez; si editas el pipeline,
+# sin esto seguiria con la version vieja (p. ej. kind='25' devolvia 9 redes).
+_RELOAD = ["quantum.modelo", "quantum.capacitance", "quantum.fastqaoa",
+           "quantum.classical", "quantum.qaoa", "quantum.problem2",
+           "quantum.problem25", "quantum.pipeline"]
+_MTIMES = {}
+
+
+def _maybe_reload():
+    changed = False
+    for name in _RELOAD:
+        mod = sys.modules.get(name)
+        f = getattr(mod, "__file__", None) if mod else None
+        if not f:
+            continue
+        try:
+            mt = os.path.getmtime(f)
+        except OSError:
+            continue
+        if _MTIMES.get(name) not in (None, mt):
+            changed = True
+        _MTIMES[name] = mt
+    if changed:
+        for name in _RELOAD:  # dependencias primero; pipeline al final
+            if name in sys.modules:
+                try:
+                    importlib.reload(sys.modules[name])
+                except Exception as exc:  # noqa: BLE001
+                    print(f"(reload failed for {name}: {exc})")
+        print("(recargados los modulos quantum/*)", flush=True)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -61,6 +94,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def _api(self, url):
+        _maybe_reload()
         q = parse_qs(url.query)
         kind = _opt(q, "kind") or "1adc"
         order = _opt(q, "order")
