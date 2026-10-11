@@ -18,6 +18,15 @@
     <span class="view-label controls-sep">Weights</span>
     <button class="tab w-tab" data-w="geom" type="button">Geometric</button>
     <button class="tab w-tab" data-w="comsol" type="button" title="COMSOL 6.1 mutual capacitance (quasi-electrostatic proxy)">COMSOL</button>
+    <span class="view-label controls-sep">Depth p</span>
+    <select id="reps" class="cmult-input" aria-label="QAOA depth p" title="QAOA layers (reps). 9q: p=3 is best. 18q: p=3 works (p=5 is slightly better but ~5x slower).">
+      <option value="1">p=1</option>
+      <option value="2">p=2</option>
+      <option value="3">p=3</option>
+      <option value="4">p=4</option>
+      <option value="5">p=5</option>
+      <option value="6">p=6</option>
+    </select>
     <span class="view-label controls-sep">Conflict weight</span>
     <select id="cmult" class="cmult-input" aria-label="Conflict penalty multiplier" title="Penalty M for the conflict constraints: higher pushes QAOA to feasible states (needed at 18 qubits, but it can hurt 9 qubits)">
       <option value="1">×1</option>

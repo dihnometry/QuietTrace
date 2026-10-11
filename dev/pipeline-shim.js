@@ -19,8 +19,8 @@ async function call(path) {
 const q = (o) => encodeURIComponent(o == null ? '' : o);
 
 export const get_model = {
-  callPromising: (kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1) =>
-    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}&w=${wsource}&c=${cmult}`),
+  callPromising: (kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1, reps = 3) =>
+    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}&w=${wsource}&c=${cmult}&p=${reps}`),
 };
 
 export const get_problem = {
@@ -34,12 +34,12 @@ export const random_order = {
 
 export const run_backend = {
   callPromising: (backend, shots = 3072, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1) =>
-    call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}&c=${cmult}`),
+    call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}&c=${cmult}&p=${reps}`),
 };
 
 export const resample_ideal = {
-  callPromising: (shots = 1024, seed = null, kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1) =>
-    call(`/api/resample?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}&c=${cmult}`),
+  callPromising: (shots = 1024, seed = null, kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1, reps = 3) =>
+    call(`/api/resample?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}&c=${cmult}&p=${reps}`),
 };
 
 export const REPS = 3;

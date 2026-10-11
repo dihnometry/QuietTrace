@@ -216,14 +216,16 @@ def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", in
     it optimizes with the fast simulator and sends a single circuit.
     Returns the measured counts.
     """
-    prob = _problem(kind, order_str, wsource, cmult)
+    # Reutiliza la optimizacion ya hecha por get_model (misma clave) en vez de
+    # volver a correr QAOA.
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
+    prob = ideal["prob"]
     init = _init_vector(init_deg, len(prob["nets"]))
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter, init=init)
 
     from qiskit import transpile
     from . import qaoa as ref  # quantum/qaoa.py (reference, uses Qiskit)
 
-    circuit = ref.build_circuit(prob["J"], prob["h"], reps, qa["theta"], init=init)
+    circuit = ref.build_circuit(prob["J"], prob["h"], int(reps), ideal["theta"], init=init)
 
     # Transpile for local simulators (their basis). IonQ is left as written:
     # its own pipeline converts to native gates with valid angles, whereas
@@ -259,13 +261,13 @@ def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", in
     derived = _fields_from_counts(counts, prob, len(prob["nets"]))
 
     # comparison metrics: ideal (|psi|^2) vs backend (measured counts)
-    derived.update(_counts_metrics(counts, prob, qa["probabilities"]))
+    derived.update(_counts_metrics(counts, prob, ideal["probs"]))
 
     return {
         "counts": counts,
         "shots": int(shots),
-        "num_qubits": int(qa["num_qubits"]),
-        "reps": reps,
+        "num_qubits": int(ideal["qa"]["num_qubits"]),
+        "reps": int(reps),
         "backend_name": str(name) if name else "",
         "backend_module": str(mod),
         "backend_type": type(backend).__name__,
@@ -314,14 +316,14 @@ def _fields_from_counts(counts, prob, n):
 _IDEAL = {}
 
 
-def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
+def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS):
     init_deg = _py_none(init_deg)
     order_str = _py_none(order_str)
-    key = (kind, init_deg, order_str, wsource, float(cmult))
+    key = (kind, init_deg, order_str, wsource, float(cmult), int(reps))
     if key not in _IDEAL:
         prob = _problem(kind, order_str, wsource, cmult)
         init = _init_vector(init_deg, len(prob["nets"]))
-        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
+        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=int(reps), maxiter=MAXITER, init=init)
         _IDEAL[key] = {
             "prob": prob,
             "probs": np.asarray(qa["probabilities"], dtype=float),
@@ -331,13 +333,13 @@ def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cm
     return _IDEAL[key]
 
 
-def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
+def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS):
     """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
 
     No usa el backend: sirve para ver el efecto del numero de shots (ruido de
     muestreo) sobre las metricas y sobre 'encontrar el optimo'.
     """
-    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult)
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
@@ -446,10 +448,9 @@ def get_problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
     }
 
 
-def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
-    # Una sola optimización QAOA por (kind, init, order, wsource, cmult): reutiliza la caché
-    # (evita correr QAOA dos veces si el mismo problema se pide de nuevo).
-    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult)
+def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS):
+    # Una sola optimización QAOA por (kind, init, order, wsource, cmult, reps).
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
     prob = ideal["prob"]
     qa = ideal["qa"]
     nets = prob["nets"]
@@ -518,7 +519,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
             "n_nets": n,
             "num_qubits": qa["num_qubits"],
             "num_parameters": qa["num_parameters"],
-            "reps": REPS,
+            "reps": int(reps),
             "adcs": 2 if kind == "2adc" else 1,
             "wsource": wsource,
             "cmult": float(cmult),

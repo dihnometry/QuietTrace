@@ -32,10 +32,11 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 - **Weights:** switch between the **Geometric** heuristic and the **COMSOL 6.1** mutual
   capacitance (quasi-electrostatic proxy) — same QAOA, so you can compare how the layer
   assignment changes when the weights go from a geometric heuristic to an electrostatic estimate.
-- **Conflict weight:** multiplier on the conflict penalty `M` (×1…×8). At **18 qubits** only
-  **2 of 262 144** states are feasible, so ×1 leaves QAOA with ~0 feasible mass (`valid 0.0%`);
-  **×5** lifts it to ~0.6% (≈18 valid samples at 3072 shots). At **9 qubits** ×1 is best — more
-  weight *hurts* (valid mass drops from 0.59 to ~0.04 at ×8).
+- **Depth p** and **Conflict weight** are auto-set per problem (from the notebook sweeps):
+  **1 ADC → p=3, ×1** (valid mass 0.59) and **2 ADC → p=3, ×5** (only **2 of 262 144** states are
+  feasible at 18 qubits, so ×1 leaves QAOA with ~0 feasible mass; ×5 lifts it to ~0.6%, ≈18 valid
+  samples at 3072 shots). `p=5` is ~15% better at 18 qubits but ~5× slower, so both keep `p=3`.
+  At **9 qubits** more conflict weight *hurts* (valid mass drops from 0.59 to ~0.04 at ×8).
 - **Connections:** edit the **ADC→FPGA order** (comma-separated net names, e.g.
   `D2,D4,D0,D1,D3,D5,D7,D6,CLK`). It rebuilds conflicts/weights and redraws. An order whose
   conflict graph is not 2-colorable falls back to the default (shown in the UI). (For 18 qubits

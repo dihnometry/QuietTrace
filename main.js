@@ -74,6 +74,25 @@ const currentC = () => {
   return Number.isFinite(v) && v > 0 ? v : 1;   // conflict-penalty multiplier
 };
 
+const repsEl = () => document.getElementById('reps');
+const currentP = () => {
+  const el = repsEl();
+  const v = el ? Number(el.value) : 3;
+  return Number.isInteger(v) && v >= 1 ? v : 3;  // QAOA depth (reps)
+};
+
+// Best (p, M) combination per problem, from the p/conflict-weight sweeps
+// (notebook sections 9-10): 9q is best at x1; 18q needs x5 (only 2 feasible
+// states of 262144). p=3 is the best trade-off for 18q (p=5 is ~15% better
+// but ~5x slower), so both keep p=3 and only the conflict weight changes.
+const PRESETS = { '1adc': { reps: 3, cmult: 1 }, '2adc': { reps: 3, cmult: 5 } };
+
+function applyPreset(kind) {
+  const pre = PRESETS[kind] || PRESETS['1adc'];
+  const r = repsEl(); if (r) r.value = String(pre.reps);
+  const c = cmultEl(); if (c) c.value = String(pre.cmult);
+}
+
 function reportOrder() {
   const el = orderEl();
   const st = document.getElementById('order-status');
@@ -95,13 +114,13 @@ async function runPipeline() {
   render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = Running
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
-  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC())).toJs();
+  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC(), currentP())).toJs();
 
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(
-        backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW, currentC())).toJs();
+        backend, SHOTS, currentP(), 150, currentKind, null, currentOrder(), currentW, currentC())).toJs();
       const over = q.derived;
       model.ideal_distribution = model.distribution;
       model.distribution = over.distribution;
@@ -150,6 +169,7 @@ problemTabs.forEach((b) => {
     problemTabs.forEach((x) => x.classList.toggle('active', x === b));
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
+    applyPreset(currentKind);  // recommended (p, conflict weight) for this problem
     scheduleProblem(true);
   };
 });
