@@ -118,7 +118,7 @@ body {
 /* métricas */
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
@@ -139,13 +139,14 @@ body {
   font-size: 1.5rem;
   font-weight: 700;
   color: #f2fff4;
+  overflow-wrap: anywhere;
   text-shadow: 0 0 10px rgba(84, 255, 87, 0.45), 0 0 26px rgba(84, 255, 87, 0.18);
 }
-.stat-sub { font-size: 0.82rem; color: var(--muted); }
+.stat-sub { font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; }
 
 /* panel PCB */
 .panel { background: var(--panel); padding: 1rem 1.1rem 1.2rem; margin-bottom: 1.5rem; }
-.toolbar { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
+.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.9rem; }
 .view-label {
   color: var(--muted);
   font-size: 0.82rem;
@@ -180,7 +181,7 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(min(660px, 100%), 1fr));
   gap: 1rem;
 }
-.board { margin: 0; }
+.board { margin: 0; min-width: 0; }
 .board svg { display: block; width: 100%; height: auto; max-width: 860px; margin-inline: auto; }
 
 .note { margin: 0.9rem 0 0; color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
@@ -193,7 +194,7 @@ body {
 }
 .chart { padding: 0.85rem 1rem 1rem; min-width: 0; }
 .chart h3 { margin: 0 0 0.4rem; font-size: 1rem; font-weight: 600; color: var(--fg); }
-.chart-body { min-width: 0; overflow-x: auto; }
+.chart-body { min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .chart svg { display: block; width: 100%; height: auto; max-width: 760px; margin-inline: auto; }
 
 .foot {
@@ -298,8 +299,8 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 1rem;
 }
-.mini { margin: 0; }
-.mini svg { display: block; }
+.mini { margin: 0; min-width: 0; }
+.mini svg { display: block; width: 100%; height: auto; }
 
 /* combos chart toggle */
 .combos-toggle { margin-left: 0.5rem; display: inline-flex; gap: 4px; vertical-align: middle; }
@@ -399,6 +400,7 @@ body {
 .modal-body {
   flex: 1 1 auto; min-height: 0;
   display: block; padding: 0.9rem; overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .modal-body svg { display: block; width: 100%; height: auto; max-width: 100%; margin-inline: auto; }
 .modal-body .bench { font-size: 0.95rem; }
@@ -416,7 +418,7 @@ body.modal-open { overflow: hidden; }
 
 /* control de conexiones (ADC -> FPGA) */
 .order-input {
-  flex: 1 1 320px; max-width: 520px;
+  flex: 1 1 320px; max-width: 520px; min-width: 0;
   font: inherit; font-size: 0.9rem; color: var(--fg);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--edge); border-radius: 6px; padding: 4px 10px;
@@ -459,3 +461,58 @@ body.modal-open { overflow: hidden; }
 .conn-foot { flex: 0 0 auto; display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.9rem; border-top: 1px solid var(--edge); }
 .conn-hint { color: var(--muted); font-size: 0.8rem; }
 .conn-spacer { flex: 1 1 auto; }
+
+/* =====================================================================
+   Responsive — móvil / tablet / ventanas estrechas.
+   Solo layout: no cambia el render ni la semántica de las gráficas.
+   ===================================================================== */
+
+/* Tablet y ventanas medianas: la fila de controles ya envuelve; apilamos
+   los modales anchos y damos algo más de aire a los mini-PCB. */
+@media (max-width: 900px) {
+  .conn-body { gap: 0.75rem; }
+  .conn-col { flex-basis: 260px; }
+}
+
+/* Móvil: una sola columna, controles a ancho completo y tablas con scroll
+   dentro de su tarjeta (nunca ensanchan la página). */
+@media (max-width: 600px) {
+  body { padding: 1.1rem 0.9rem 2rem; }
+
+  .grid { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); gap: 0.6rem; }
+  .stat-value { font-size: 1.3rem; }
+
+  .panel { padding: 0.85rem 0.8rem 1rem; }
+  .controls { padding: 0.7rem 0.8rem; }
+  .controls .toolbar { align-items: flex-start; }
+  .controls-sep { margin-left: 0; }
+  .view-label { margin-right: 0; }
+  /* el input de orden ocupa su propia fila y el Run queda a ancho completo */
+  .order-input { flex: 1 1 100%; max-width: none; }
+  .controls .toolbar > .run-btn { flex: 1 1 100%; margin-left: 0; text-align: center; }
+
+  .chart { padding: 0.75rem 0.7rem 0.85rem; }
+  .bench { font-size: 0.72rem; }
+  .bench th, .bench td { padding: 3px 4px; }
+  .bits { font-size: 0.68rem; letter-spacing: 0.03em; }
+
+  .modal { padding: 2vmin; }
+  .modal-box { width: 96vw; height: 82vh; }
+  .modal-body { padding: 0.6rem; }
+  .modal-body .bench { font-size: 0.74rem; }
+  .modal-body .bench-sub { font-size: 0.66rem; }
+  .modal-body .bits { font-size: 0.7rem; }
+
+  .conn-box { width: 96vw; height: 90vh; }
+  .conn-body { flex-direction: column; overflow: auto; }
+  .conn-col { flex: 0 0 auto; max-height: 38vh; }
+  .conn-preview { flex: 0 0 auto; width: 100%; }
+  .conn-foot { flex-wrap: wrap; }
+  .conn-hint { flex: 1 1 100%; }
+}
+
+/* Móviles muy estrechos: los chips de métricas a una columna. */
+@media (max-width: 380px) {
+  .stats { grid-template-columns: 1fr; }
+}
