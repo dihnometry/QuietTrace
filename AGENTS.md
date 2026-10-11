@@ -189,6 +189,10 @@ Si defines `main()` que cumpla las reglas, el runtime lo **llama automáticament
   `bell.run_bell(backend, 1000)` aborta con `ConnectionError`.
   Usa **imports con nombre** o `import * as`; un import por defecto da `undefined`.
   Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`.
+  **`null`/`undefined` de JS llegan a Python como `JsNull`/`JsUndefined` (un `JsProxy`), no como
+  `None`.** No los compares con `is None`: normalízalos (p. ej. un helper que mapee esos nombres
+  de tipo a `None`) antes de usarlos, o el argumento revienta con
+  `float() argument must be ... not 'JsNull'`.
 
 ### 2.7. Archivos de datos (crítico)
 

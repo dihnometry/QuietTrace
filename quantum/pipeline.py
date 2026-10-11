@@ -23,14 +23,26 @@ REPS = 3            # QAOA depth (as in main.py)
 MAXITER = 150
 
 
+def _py_none(v):
+    """Qollab/Pyodide entrega el `null`/`undefined` de JS como `JsNull`/`JsUndefined`
+    (un `JsProxy`), no como `None`. Normaliza ambos a `None`."""
+    if v is None:
+        return None
+    if type(v).__name__ in ("JsNull", "JsUndefined"):
+        return None
+    return v
+
+
 def _init_vector(init_deg, n):
     """n angulos (rad) uniformes desde un angulo en grados; None -> |+> (Hadamard)."""
+    init_deg = _py_none(init_deg)
     if init_deg is None:
         return None
     return [math.radians(float(init_deg))] * n
 
 
 def _parse_order(nets, order_str, default):
+    order_str = _py_none(order_str)
     if order_str:
         parts = [p.strip() for p in str(order_str).split(",") if p.strip()]
         if len(parts) == len(nets) and set(parts) == set(nets):
@@ -287,6 +299,8 @@ _IDEAL = {}
 
 
 def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+    init_deg = _py_none(init_deg)
+    order_str = _py_none(order_str)
     key = (kind, init_deg, order_str, wsource)
     if key not in _IDEAL:
         prob = _problem(kind, order_str, wsource)
