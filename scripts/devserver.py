@@ -44,7 +44,7 @@ def _opt(q, key):
 # sin esto seguiria con la version vieja (p. ej. kind='25' devolvia 9 redes).
 _RELOAD = ["quantum.modelo", "quantum.capacitance", "quantum.fastqaoa",
            "quantum.classical", "quantum.qaoa", "quantum.problem2",
-           "quantum.problem25", "quantum.pipeline"]
+           "quantum.problem25", "quantum.reduced", "quantum.pipeline"]
 _MTIMES = {}
 
 
