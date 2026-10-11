@@ -19,8 +19,8 @@ async function call(path) {
 const q = (o) => encodeURIComponent(o == null ? '' : o);
 
 export const get_model = {
-  callPromising: (kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1, reps = 3) =>
-    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}&w=${wsource}&c=${cmult}&p=${reps}`),
+  callPromising: (kind = '1adc', init = null, order = null, wsource = 'geom', cmult = 1, reps = 3, model = 'full') =>
+    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}&w=${wsource}&c=${cmult}&p=${reps}&m=${model}`),
 };
 
 export const get_problem = {

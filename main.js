@@ -28,6 +28,7 @@ const clamp = (v, lo, hi, dflt) => {
 };
 
 let currentKind = '1adc';
+let currentModel = 'full';   // 'full' (n qubits) | 'reduced' (k qubits, componentes)
 let currentW = DEV ? 'geom' : LOCKED.wsource;   // weight source: 'geom' | 'comsol' (locked in the export)
 let MODEL = null;
 
@@ -127,7 +128,7 @@ async function runPipeline() {
   render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = Running
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
-  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC(), currentP())).toJs();
+  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC(), currentP(), currentModel)).toJs();
   if (!DEV) delete model.reduction;   // reduccion por componentes: solo dev
 
   if (hasBackend) {
@@ -193,6 +194,16 @@ problemTabs.forEach((b) => {
     if (el) el.value = '';   // new problem -> default order
     applyPreset(currentKind);  // recommended (p, conflict weight) for this problem
     scheduleProblem(true);
+  };
+});
+
+const modelTabs = Array.from(document.querySelectorAll('.model-tab'));
+modelTabs.forEach((b) => {
+  b.onclick = () => {
+    if (b.dataset.model === currentModel) return;
+    currentModel = b.dataset.model;
+    modelTabs.forEach((x) => x.classList.toggle('active', x === b));
+    setStatus('Model changed — press ▶ Run to run QAOA.');
   };
 });
 
@@ -347,6 +358,7 @@ function applyConnections() {
 
 (async () => {
   problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
+  modelTabs.forEach((x) => x.classList.toggle('active', x.dataset.model === currentModel));
   wTabs.forEach((x) => x.classList.toggle('active', x.dataset.w === currentW));
 
   // In the export the tuning knobs are locked: hide them (dev preview keeps them).

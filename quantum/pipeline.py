@@ -593,7 +593,109 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
     }
 
 
-def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS):
+def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
+    """Modelo REDUCIDO: una variable por componente del grafo de conflictos (k qubits).
+
+    Mismo contrato que get_model (el motor lo pinta igual), pero el QAOA corre sobre
+    k qubits (2**k estados) y el espacio es factible por construccion.
+    """
+    from . import reduced as _red
+    from . import classical as _C
+
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
+    prob = ideal["prob"]
+    nets = prob["nets"]
+    n = len(nets)
+    W = np.asarray(prob["W"], dtype=float)
+    vias = np.asarray(prob["vias"], dtype=float)
+    lam_v = float(prob["lam_v"])
+    conflicts = prob["conflicts"]
+    Mpen = float(prob["M"])
+    bvec = lam_v * vias
+
+    base, groups, comp_of, k = _red.reduce_problem(prob)
+    rcost = _red.reduced_cost_vector(prob, base, comp_of, k)
+    maxiter = MAXITER if k <= 18 else 12
+    qa = qaoa.run_qaoa_cost(rcost, reps=int(reps), maxiter=maxiter)
+    probs = np.asarray(qa["probabilities"], dtype=float)
+    hist = qa["history"]
+    argmax = qa.get("argmax_history") or []
+
+    def xof(m):
+        y = [(int(m) >> c) & 1 for c in range(k)]
+        return [int(v) for v in _red.x_from_y(base, comp_of, y)]
+
+    def full_cost(x):
+        return float(_C.cost(np.asarray(x, dtype=np.int8), W, bvec))
+
+    top = np.argsort(probs)[::-1][:32]
+    dist = []
+    for m in top:
+        m = int(m)
+        x = xof(m)
+        dist.append({"x": x, "prob": round(float(probs[m]), 6),
+                     "cost": round(full_cost(x), 6), "feasible": True})
+    best = _best_feasible(dist)
+    best_x = list(best["x"])
+
+    exact_m = int(np.argmin(rcost))
+    exact_cost = float(rcost[exact_m])
+    exact_x = xof(exact_m)
+    success_ideal = round(float(probs[exact_m]), 6)
+    gap = (best["cost"] - exact_cost) / max(abs(exact_cost), 1e-9)
+
+    before_bits = [0] * n
+    before = _breakdown(before_bits, W, vias, lam_v, conflicts, Mpen)
+    after = _breakdown(best_x, W, vias, lam_v, conflicts, Mpen)
+
+    checkpoints = sorted({c for c in (1, 2, 5, 10, 25, 50, 100) if c <= len(hist)} | {len(hist)})
+    solutions = []
+    for t in checkpoints:
+        if t - 1 >= len(argmax):
+            continue
+        x = xof(int(argmax[t - 1]))
+        bd = _breakdown(x, W, vias, lam_v, conflicts, Mpen)
+        solutions.append({"iter": t, "x": x, "cost": bd["total"], "violations": bd["violations"]})
+
+    measured_energy = round(float(np.sum(probs * rcost)), 6)
+
+    return {
+        "source": "qaoa",
+        "meta": {"n_nets": n, "num_qubits": k, "num_parameters": qa["num_parameters"],
+                 "reps": int(reps), "adcs": 2 if kind in ("2adc", "25") else 1,
+                 "wsource": wsource, "cmult": float(cmult), "model": "reduced",
+                 "approx_gap": round(gap, 6)},
+        "nets": nets, "in_order": nets, "out_order": list(prob["out_order"]),
+        "conflicts": [[nets[i], nets[j]] for (i, j) in sorted(conflicts)],
+        "weights": [[float(W[i][j]) for j in range(n)] for i in range(n)],
+        "assignments": {"before": before_bits, "after": list(best_x),
+                        "before_layers": _layer_members(before_bits, nets),
+                        "after_layers": _layer_members(best_x, nets)},
+        "costs": {"before": before, "after": after},
+        "exact": {"cost": round(exact_cost, 6)},
+        "convergence": {"x": list(range(len(hist))), "energy": [round(v, 4) for v in hist]},
+        "distribution": dist, "distribution_source": "reduced",
+        "success_ideal": success_ideal,
+        "solutions": solutions,
+        "measured_energy": measured_energy,
+        "valid_mass": 1.0,
+        "reduction": {
+            "n": n, "k": k, "states_reduced": int(1 << k), "states_full": int(1 << n),
+            "groups": [[int(i) for i in g] for g in groups],
+            "base": [int(b) for b in base], "comp_of": [int(c) for c in comp_of],
+            "reduced_opt_cost": round(exact_cost, 6),
+            "reduced_opt_y": [(exact_m >> c) & 1 for c in range(k)],
+            "reduced_opt_x": exact_x,
+            "qaoa_reduced": {"cost": round(best["cost"], 6), "prob": round(float(probs[int(np.argmax(probs))]), 6),
+                             "evals": len(hist), "reps": int(reps), "valid_mass": 1.0},
+            "qaoa_full": None,
+        },
+    }
+
+
+def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS, model="full"):
+    if model == "reduced":
+        return _reduced_model(kind, init_deg, order_str, wsource, cmult, reps)
     # Una sola optimización QAOA por (kind, init, order, wsource, cmult, reps).
     ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
     prob = ideal["prob"]

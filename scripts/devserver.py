@@ -107,10 +107,11 @@ class Handler(SimpleHTTPRequestHandler):
         wsource = _opt(q, "w") or "geom"
         cmult = float(_opt(q, "c") or 1)
         reps = int(_opt(q, "p") or pipeline.REPS)
+        model = _opt(q, "m") or "full"
         init_deg = int(init) if init not in (None, "null", "None") else None
         try:
             if url.path == "/api/model":
-                return self._send(200, pipeline.get_model(kind, init_deg, order, wsource, cmult, reps))
+                return self._send(200, pipeline.get_model(kind, init_deg, order, wsource, cmult, reps, model))
             if url.path == "/api/problem":
                 return self._send(200, pipeline.get_problem(kind, order, wsource, cmult))
             if url.path == "/api/random":
