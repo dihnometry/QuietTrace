@@ -83,6 +83,9 @@ def _problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
         from . import problem25  # instancia experimental (solo dev)
         nets = list(problem25.NETS_25)
         default = list(problem25.OUT_ORDER)
+    elif kind.startswith("syn"):
+        from . import reduced as _red  # sintetica con k componentes (solo dev)
+        return _red.synthetic_instance(int(kind[3:] or "9"), cmult=cmult, wsource=wsource)
     else:
         nets = list(M.NETS)
         default = list(M.RIGHT_ORDER)
@@ -445,6 +448,10 @@ def _nets_and_default(kind):
     if kind == "25":
         from . import problem25
         return list(problem25.NETS_25), list(problem25.OUT_ORDER)
+    if kind.startswith("syn"):
+        from . import reduced as _red
+        p = _red.synthetic_instance(int(kind[3:] or "9"))
+        return list(p["nets"]), list(p["out_order"])
     return list(M.NETS), list(M.RIGHT_ORDER)
 
 

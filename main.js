@@ -98,6 +98,7 @@ const PRESETS = {
   '1adc': { reps: 3, cmult: 1 },
   '2adc': { reps: 3, cmult: 5 },
   '25': { reps: 1, cmult: 5 },
+  'syn9': { reps: 3, cmult: 5 },
 };
 
 function applyPreset(kind) {
