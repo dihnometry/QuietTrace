@@ -888,12 +888,24 @@ function wireChartInteractions() {
 }
 
 // Result of a run on the backend selected in Qollab (QPU or simulator).
+function backendClass(q) {
+  const mod = q.backend_module || '';
+  if (mod.includes('basic_provider')) return { label: 'built-in simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('aer')) return { label: 'local noise-model simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('braket')) return { label: 'AWS Braket local simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('ionq')) return { label: 'IonQ · remote simulator (free) or quantum computer (credits)', color: COL.L4 };
+  return { label: q.backend_type || 'backend', color: COL.muted };
+}
+
 export function renderBackend(q, model) {
   const el = document.getElementById('qpu');
   if (!el) return;
   if (!q || !q.counts) { el.innerHTML = ''; return; }
 
-  const valid = model.valid_mass != null ? fmt(model.valid_mass * 100, 1) : null;
+  const vb = model.valid_backend != null ? model.valid_backend : model.valid_mass;
+  const valid = vb != null ? fmt(vb * 100, 1) : null;
+  const cls = backendClass(q);
+  const jid = q.job_id ? ` · job ${esc(q.job_id)}` : '';
 
   let ops = '';
   if (q.circuit) {
@@ -904,6 +916,7 @@ export function renderBackend(q, model) {
   }
 
   el.innerHTML = `
-    <p class="qpu-line"><strong>${esc(q.backend_name || 'backend')}</strong> · ${q.shots || 0} shots · 1 job${valid != null ? ` · valid ${valid}%` : ''}</p>
+    <p class="qpu-line"><strong>${esc(q.backend_name || 'backend')}</strong> · ${q.shots || 0} shots · 1 job${valid != null ? ` · valid ${valid}%` : ''}${jid}</p>
+    <p class="note">Backend: <strong style="color:${cls.color}">${esc(cls.label)}</strong> · <code>${esc(q.backend_type || '')}</code></p>
     ${q.circuit ? `<p class="note">Executed circuit: <strong>${q.circuit.num_qubits} qubits</strong> · depth ${q.circuit.depth} · ${q.circuit.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>` : ''}`;
 }

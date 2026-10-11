@@ -9,7 +9,8 @@ import { render, renderBackend, routingPreview } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
-const hasBackend = (typeof backend !== 'undefined') && !!backend;
+const setQpu = (html) => { const el = document.getElementById('qpu'); if (el) el.innerHTML = html; };
+const hasBackendNow = () => (typeof backend !== 'undefined') && !!backend;
 
 const clamp = (v, lo, hi, dflt) => {
   const x = Number(v);
@@ -78,6 +79,7 @@ function reportOrder() {
 }
 
 async function runPipeline() {
+  const hasBackend = hasBackendNow();
   setStatus('Building problem…');
   const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW)).toJs();
   problem.status = 'running';
@@ -110,10 +112,15 @@ async function runPipeline() {
     } catch (errJob) {
       console.error(errJob);
       render(model);
+      setQpu(`<p class="qpu-line" style="color:#ff6b6b">QPU run did not complete: ${String(errJob)}</p>
+        <p class="note">The local QAOA result above is unaffected. If you picked IonQ hardware,
+        remember it must be online and Qollab allows one job per run.</p>`);
       setStatus(`Local QAOA ready · QPU run did not complete: ${errJob}`);
     }
   } else {
     render(model);
+    setQpu(`<p class="note">No backend in this environment (local preview). In Qollab,
+      open <strong>Select QPU</strong> and press ▶ Run to send one QAOA circuit.</p>`);
     const opt = model.exact && model.exact.cost != null ? ` (optimal ${Number(model.exact.cost).toFixed(3)})` : '';
     setStatus(`Local QAOA ready · ${model.meta.num_qubits} qubits · p=${model.meta.reps} · cost ${Number(model.costs.after.total).toFixed(3)}${opt}`);
   }

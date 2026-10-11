@@ -219,6 +219,17 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", in
         except Exception:  # noqa: BLE001
             name = None
 
+    job_id = ""
+    try:
+        jid = job.job_id()
+        job_id = str(jid() if callable(jid) else jid)
+    except Exception:  # noqa: BLE001
+        job_id = ""
+
+    mod = type(backend).__module__
+    print(f"[QuietTracE] QPU backend: {name or type(backend).__name__} "
+          f"({mod}) · ionq={is_ionq} · shots={int(shots)} · job={job_id or 'n/a'}")
+
     counts = {str(k): int(v) for k, v in counts.items()}
     derived = _fields_from_counts(counts, prob, len(prob["nets"]))
 
@@ -246,6 +257,10 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", in
         "num_qubits": int(qa["num_qubits"]),
         "reps": reps,
         "backend_name": str(name) if name else "",
+        "backend_module": str(mod),
+        "backend_type": type(backend).__name__,
+        "is_ionq": bool(is_ionq),
+        "job_id": job_id,
         "circuit": {
             "num_qubits": int(tcirc.num_qubits),
             "depth": int(tcirc.depth()),

@@ -56,7 +56,10 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 
 In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**, then sends
 **one** QAOA circuit to the chosen backend (Qollab enforces *one job per run* on IonQ) and
-renders the measured counts and their validity. A local preview has no backend, so that section
+renders the measured counts and their validity. The **QPU run** panel shows which backend ran,
+its type (local simulator / IonQ), the job id and the executed circuit — so it is clear that
+the circuit was sent. Simulators run in your browser or on IonQ's cloud and are **free**; only
+the IonQ quantum computers spend **credits**. A local preview has no backend, so that section
 stays empty.
 
 ## Structure
