@@ -142,3 +142,60 @@ Consecuencia honesta: con los pesos/estructura actuales, los clásicos **tambié
    cuidando que los `J_cd` entre componentes **no** sean despreciables (si no, se trivializa).
 3. Decidir si se **enriquece el modelo** (más capas, conflictos ponderados) para buscar un
    régimen donde la optimización sobre las `y_c` siga siendo difícil.
+
+## 9. Notas adicionales
+
+### 9.1 ¿Y si añadimos una tercera capa (más aislante)? — NO es lo mismo
+
+Con **2 capas** "capas distintas" es `x_i ⊕ x_j = 1` (XOR) → bipartito → exactamente `2^k`.
+Con **3 capas** (p. ej. L1/L3/L4) la restricción es `x_i ≠ x_j` sobre 3 valores → el conjunto
+factible son los **3-coloreos propios**, que **no** son `2^k`. Medido en las 9 pistas:
+
+| capas | asignaciones factibles | espacio total |
+|---|---|---|
+| 2 | **16** = 2⁴ | 512 |
+| 3 | **1944** | 19 683 |
+
+Por componente (tamaños 5,1,2,1): con 2 capas cada una tiene **2** estados; con 3 capas, la
+componente de tamaño 5 tiene **36**. Consecuencias:
+- La **reducción lineal (BFS)** ya no basta; la variable por componente **no** es un bit.
+- Cada pista necesita **2 bits** → el modelo completo pasa a **2n qubits**.
+- Optimizar/parametrizar los 3-coloreos es un problema de **coloreo** (NP-duro en general).
+- **Lo que sí se conserva**: los *grupos* (componentes) son los mismos.
+
+Solo sería "el mismo" si la tercera capa **nunca** interviniera en los conflictos (restricción
+sigue siendo XOR).
+
+### 9.2 Instancias disponibles
+
+| pestaña | pistas n | componentes k | QAOA reducido | nota |
+|---|---|---|---|---|
+| 1 ADC | 9 | 4 | 4 q | Full y Reduced |
+| 2 ADC | 18 | 1 | 1 q | Full y Reduced |
+| 25 nets | 25 | 2 | 2 q | dev-only |
+| `syn9` (9 groups · 18 nets) | 18 | 9 | 9 q | público (Full 18q y Reduced 9q) |
+| `syn18` (18 groups · 36 nets) | 36 | 18 | 18 q | **dev-only** (solo Reduced) |
+| `synv` (18 groups · varied) | 54 | 18 | 18 q | **dev-only** (solo Reduced); grupos de 2/3/4 |
+
+`synthetic_instance(k)` → k componentes (n = 2k). `synthetic_instance_sizes(sizes)` → componentes
+de tamaños variados (cada bloque usa el orden "rotación", cuyo grafo de inversiones es una
+**estrella** → conexo y bipartito).
+
+El caso **variado** (`synv`) es el más interesante: el QAOA reducido (18 q, p=3) **no** clava el
+óptimo (gap ≈ 2.2 %) mientras greedy/SA/exhaustive sí → resultado honesto, sin ventaja cuántica.
+
+### 9.3 Rendimiento (lag con muchas pistas)
+
+Con muchas pistas (36/54) hay cientos de elementos SVG con animación individual (`.trace`,
+`.fade-late`, `.pop-late`, `.bar`, `.cell`) → *lag*. Se probó desactivarlas automáticamente por
+encima de 24 pistas (`body.many-nets`), pero **se descartó**: las animaciones son parte de la demo
+y se prefieren (aunque haya algo de lag). Quien quiera menos movimiento puede usar la opción del
+sistema `prefers-reduced-motion`, que sí las desactiva.
+
+### 9.4 Alcance
+
+- **Público (Qollab):** interruptor `Model: Full/Reduced`, tarjeta *Component reduction*,
+  instancias 1 ADC, 2 ADC, `syn9`, `syn18` y `synv`. Las de 36/54 pistas (`syn18`, `synv`) son
+  **Reduced-only**: la pestaña *Full* se desactiva (sería 2^36/2^54, no simulable).
+- **Dev-only:** instancia `25` y el tooling en `dev/`.
+- Documento de diseño: este archivo (`docs/` no se sube a Qollab).

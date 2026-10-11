@@ -199,6 +199,7 @@ problemTabs.forEach((b) => {
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
     applyPreset(currentKind);  // recommended (p, conflict weight) for this problem
+    updateModelTabs();         // Reduced-only instances disable the Full tab
     scheduleProblem(true);
   };
 });
@@ -206,12 +207,30 @@ problemTabs.forEach((b) => {
 const modelTabs = Array.from(document.querySelectorAll('.model-tab'));
 modelTabs.forEach((b) => {
   b.onclick = () => {
-    if (b.dataset.model === currentModel) return;
+    if (b.disabled || b.dataset.model === currentModel) return;
     currentModel = b.dataset.model;
     modelTabs.forEach((x) => x.classList.toggle('active', x === b));
     setStatus('Model changed — press ▶ Run to run QAOA.');
   };
 });
+
+// Instancias que SOLO pueden correr en Reduced (el Full seria 2^36 / 2^54).
+const REDUCED_ONLY = new Set(['syn18', 'synv']);
+
+function updateModelTabs() {
+  const ro = REDUCED_ONLY.has(currentKind);
+  const fullBtn = modelTabs.find((b) => b.dataset.model === 'full');
+  if (fullBtn) {
+    fullBtn.disabled = ro;
+    fullBtn.title = ro
+      ? 'Full needs 2^36/2^54 states — not simulatable. This instance is Reduced only.'
+      : '';
+  }
+  if (ro) {
+    currentModel = 'reduced';
+    modelTabs.forEach((x) => x.classList.toggle('active', x.dataset.model === currentModel));
+  }
+}
 
 const wTabs = Array.from(document.querySelectorAll('.w-tab'));
 wTabs.forEach((b) => {
@@ -366,6 +385,7 @@ function applyConnections() {
   problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
   modelTabs.forEach((x) => x.classList.toggle('active', x.dataset.model === currentModel));
   wTabs.forEach((x) => x.classList.toggle('active', x.dataset.w === currentW));
+  updateModelTabs();
 
   // In the export the tuning knobs are locked: hide them (dev preview keeps them).
   if (!DEV) document.querySelectorAll('.dev-only').forEach((el) => { el.hidden = true; });
