@@ -92,7 +92,12 @@ const currentP = () => {
 };
 
 // Dev-only: recommended (p, M) per problem from the sweeps (notebook 9-10).
-const PRESETS = { '1adc': { reps: 3, cmult: 1 }, '2adc': { reps: 3, cmult: 5 } };
+// 25q is experimental: reps=1 and a capped COBYLA (dense 2^25 statevector).
+const PRESETS = {
+  '1adc': { reps: 3, cmult: 1 },
+  '2adc': { reps: 3, cmult: 5 },
+  '25': { reps: 1, cmult: 5 },
+};
 
 function applyPreset(kind) {
   if (!DEV) return;   // the export uses the locked values, not the presets

@@ -456,6 +456,24 @@ function combosCard(scale) {
   </div>`;
 }
 
+function classicalBenchmark(bench) {
+  const rows = (bench.methods || []).map((m) => {
+    const gap = m.gap == null ? '—' : fmt(m.gap, 3);
+    const succ = m.success == null ? '—' : `${Math.round(m.success * 100)}%`;
+    const time = m.time_ms == null ? '—' : `${fmt(m.time_ms, 1)} ms`;
+    const cls = m.id === 'qaoa' ? ' class="qaoa"' : '';
+    return `<tr${cls}><td>${esc(m.name)}</td><td>${fmt(m.best, 4)}</td><td>${gap}</td>`
+      + `<td>${m.evals == null ? '—' : m.evals}</td><td>${time}</td><td>${succ}</td></tr>`;
+  }).join('');
+  const exact = bench.exact == null ? '—' : fmt(bench.exact, 4);
+  const inner = `<p class="note">Exact optimum <strong>${exact}</strong> · ${bench.budget} cost `
+    + `evaluations × ${bench.trials} trials. Classical search is restricted to feasible assignments; `
+    + `QAOA is unconstrained (it may emit conflicts).</p>`
+    + `<table class="bench"><thead><tr><th>Method</th><th>Best cost</th><th>Gap</th>`
+    + `<th>Evals</th><th>Time</th><th>Success</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return chartCard('Classical benchmark · QAOA vs classical search', inner);
+}
+
 function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
   const pad = { l: 56, r: 18, t: 30, b: 84 };
   const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
@@ -505,7 +523,7 @@ function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
     s += `<text x="${cx}" y="${pad.t + ih + 12}" text-anchor="end" font-size="11" fill="${COL.muted}" transform="rotate(-60 ${cx} ${pad.t + ih + 12})">${esc(r.label)}</text>`;
   });
 
-  const ly = h - 22;
+  const ly = 12;   // leyenda ARRIBA (antes estaba abajo y estorbaba a las etiquetas rotadas)
   if (grouped) {
     s += `<rect x="${pad.l}" y="${ly}" width="16" height="10" rx="3" fill="${COL.muted}"/>`;
     s += `<text x="${pad.l + 22}" y="${ly + 10}" font-size="13" fill="${COL.muted}">ideal</text>`;
@@ -835,7 +853,9 @@ export function render(model) {
     : (model.distribution_source === 'backend' ? 'backend' : (isReal ? 'ideal' : 'mock'));
   if (Array.isArray(model.distribution) && model.distribution.length) {
     charts.push(distributionChart({
-      title: idealDist ? 'Circuit distribution · ideal vs backend' : 'Circuit distribution',
+      title: idealDist
+        ? 'Circuit distribution · from running the optimized circuit (ideal vs backend)'
+        : 'Circuit distribution · from running the optimized circuit',
       items: model.distribution,
       ideal: idealDist,
     }));
@@ -844,7 +864,7 @@ export function render(model) {
   CHART_SOURCE = 'ideal · local';
   if (model.convergence && Array.isArray(model.convergence.energy)) {
     charts.push(energyChart({
-      title: 'QAOA convergence · energy ⟨H_C⟩ (ideal, local optimization)',
+      title: 'QAOA convergence · during optimization (⟨H_C⟩ per iteration, local ideal)',
       xs: model.convergence.x,
       ys: model.convergence.energy,
       mark: model.measured_energy,
@@ -852,6 +872,11 @@ export function render(model) {
   }
 
   charts.push(combosCard('log'));
+
+  if (model.benchmark) {
+    CHART_SOURCE = isReal ? 'QAOA vs classical' : '';
+    charts.push(classicalBenchmark(model.benchmark));
+  }
 
   CHART_SOURCE = isReal ? 'geometric' : 'mock';
   charts.push(heatmap({

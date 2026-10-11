@@ -15,6 +15,7 @@
     <span class="view-label">Problem</span>
     <button class="tab problem-tab" data-problem="1adc" type="button">1 ADC · 9 qubits</button>
     <button class="tab problem-tab" data-problem="2adc" type="button">2 ADC · 18 qubits</button>
+    <button class="tab problem-tab dev-only" data-problem="25" type="button" title="Experimental (dev-only): synthetic 25-net instance, dense statevector 2^25">25 nets · 25 qubits</button>
     <span class="view-label controls-sep dev-only">Weights</span>
     <button class="tab w-tab dev-only" data-w="geom" type="button">Geometric</button>
     <button class="tab w-tab dev-only" data-w="comsol" type="button" title="COMSOL 6.1 mutual capacitance (quasi-electrostatic proxy)">COMSOL</button>
@@ -59,17 +60,23 @@
     <figure class="board" id="board-after"></figure>
   </div>
   <p class="note">
-    The <strong>after</strong> board is the best feasible layer assignment found by QAOA; the
-    <strong>before</strong> board is the baseline (all lines on L1). Conflicts are detected from
-    the real intersection of the routed traces.
+    The <strong>before</strong> board is the baseline (all lines on L1). The <strong>after</strong>
+    board is the <strong>lowest-cost state that the optimized circuit actually produces</strong> —
+    the min-cost entry of the distribution, feasible ones preferred, never a post-selected state
+    the circuit does not emit. Conflicts come from the real intersection of the routed traces.
   </p>
 </section>
 
 <section class="panel">
   <div class="toolbar">
-    <span class="view-label">Solution evolution (per QAOA iteration)</span>
+    <span class="view-label">Solution evolution · during optimization (argmax state per iteration)</span>
   </div>
   <div id="evolution"></div>
+  <p class="note">
+    Each mini-PCB is the <strong>most probable state</strong> at that iteration of the
+    <strong>local optimization</strong> (not the final circuit's output). It is not monotonic: the
+    state can move back and forth while β and γ are still being tuned.
+  </p>
 </section>
 
 <section class="panel">

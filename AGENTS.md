@@ -385,8 +385,10 @@ quantum/pipeline.py      # une modelo + QAOA; devuelve el contrato del motor
 quantum/modelo.py        # modelo del equipo (recortado: sin helpers sin usar)
 quantum/qaoa.py          # QAOA de referencia (movido de main.py)
 quantum/fastqaoa.py      # QAOA rápido NumPy (lo usa el pipeline)
+quantum/classical.py     # clásicos de referencia (greedy + simulated annealing) para el benchmark
 quantum/capacitance.py   # pesos W_ij desde C'_m de COMSOL (fuente de pesos opcional)
 quantum/comsol_capacitance.csv  # calibración COMSOL 6.1 (11 puntos, 0.2–4 mm)
+quantum/problem25.py     # instancia experimental de 25 redes (solo dev)
 quantum/pcb.py           # modelo MOCK (modo demo / respaldo)
 requirements.txt         # paquetes Python (Qiskit)
 README.md                # write-up (Project Card)

@@ -16,7 +16,8 @@ entries = ["index.html", "main.css", "main.js", "engine.js",
 
 # excluir tooling local y metadatos
 EXCLUDE_DIRS = {".git", "dev", "scripts", "__MACOSX", "__pycache__"}
-EXCLUDE_FILES = {".DS_Store", "Thumbs.db"}
+# problem25.py: instancia experimental de 25 redes, solo dev (la pestaña esta oculta en la UI)
+EXCLUDE_FILES = {".DS_Store", "Thumbs.db", "problem25.py"}
 
 if os.path.exists(out):
     os.remove(out)

@@ -7,6 +7,7 @@
 
 import math
 import random
+import time
 
 import numpy as np
 
@@ -78,6 +79,10 @@ def _problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
         from . import problem2
         nets = list(problem2.NETS_2ADC)
         default = list(problem2.OUT_ORDER)
+    elif kind == "25":
+        from . import problem25  # instancia experimental (solo dev)
+        nets = list(problem25.NETS_25)
+        default = list(problem25.OUT_ORDER)
     else:
         nets = list(M.NETS)
         default = list(M.RIGHT_ORDER)
@@ -145,8 +150,13 @@ def _index_from_bits(bits):
 
 
 def _state_bits(n):
-    k = np.arange(1 << n)
-    return ((k[:, None] >> np.arange(n)) & 1).astype(np.int8)
+    """Matriz (2**n, n) de bits (int8), columna a columna (sin temporales int64 grandes)."""
+    size = 1 << n
+    out = np.empty((size, n), dtype=np.int8)
+    k = np.arange(size, dtype=np.int64)
+    for i in range(n):
+        out[:, i] = (k >> i) & 1
+    return out
 
 
 def _violation_counts(n, conflicts):
@@ -161,22 +171,47 @@ def _feasible_mask(n, conflicts):
     return _violation_counts(n, conflicts) == 0
 
 
-def _vector_metrics(prob, n):
-    """(bits matrix, total cost, ising energy, feasible) para los 2^n estados."""
-    X = _state_bits(n)
-    Xf = X.astype(float)
-    S = 1.0 - 2.0 * Xf
-    W = prob["W"]
-    coupling = np.zeros(1 << n, dtype=float)
-    for i in range(n):
-        for j in range(i + 1, n):
-            if W[i][j] != 0.0:
-                coupling = coupling + W[i][j] * (X[:, i] == X[:, j])
-    via = prob["lam_v"] * (Xf @ prob["vias"])
-    conflict = prob["M"] * _violation_counts(n, prob["conflicts"])
-    total = coupling + via + conflict
-    ising = S @ prob["h"] + 0.5 * np.einsum("ki,ij,kj->k", S, prob["J"], S)
-    return X, total, ising, (conflict == 0)
+def _vector_metrics(prob, n, chunk=1 << 20):
+    """(bits matrix, total cost, ising energy, feasible) para los 2^n estados.
+
+    Se calcula por TROZOS y con BLAS (nada de bucles O(n^2) sobre 2^n ni matrices
+    (2^n, n) en float64), para que n=25 (33.5M estados) quepa en memoria.
+    """
+    W = np.asarray(prob["W"], dtype=float)
+    W_off = W.copy()
+    np.fill_diagonal(W_off, 0.0)
+    J = np.asarray(prob["J"], dtype=float)
+    h = np.asarray(prob["h"], dtype=float)
+    vias = np.asarray(prob["vias"], dtype=float)
+    lam = float(prob["lam_v"])
+    Mpen = float(prob["M"])
+    conflicts = list(prob["conflicts"])
+
+    size = 1 << n
+    X = np.empty((size, n), dtype=np.int8)
+    total = np.empty(size, dtype=float)
+    ising = np.empty(size, dtype=float)
+    feasible = np.empty(size, dtype=bool)
+
+    bits = np.arange(n)
+    w_sum = 0.25 * W_off.sum()
+    v_sum = float(vias.sum())
+    for lo in range(0, size, chunk):
+        hi = min(lo + chunk, size)
+        k = np.arange(lo, hi, dtype=np.int64)
+        Xc = ((k[:, None] >> bits) & 1).astype(np.int8)
+        X[lo:hi] = Xc
+        S = 1.0 - 2.0 * Xc.astype(float)                 # (+1/-1)
+        # sum_{i<j} W_ij [x_i=x_j] = 0.25*sum(W) + 0.25 * s^T W s   (W simetrica, diag 0)
+        coupling = w_sum + 0.25 * np.einsum("ki,ki->k", S @ W_off, S)
+        via = lam * 0.5 * (v_sum - S @ vias)             # Xf = (1-s)/2
+        viol = np.zeros(hi - lo, dtype=np.int32)
+        for (i, j) in conflicts:
+            viol += (Xc[:, i] == Xc[:, j]).astype(np.int32)
+        total[lo:hi] = coupling + via + Mpen * viol
+        ising[lo:hi] = S @ h + 0.5 * np.einsum("ki,ki->k", S @ J, S)
+        feasible[lo:hi] = viol == 0
+    return X, total, ising, feasible
 
 
 def _layer_members(bits, nets):
@@ -323,7 +358,10 @@ def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cm
     if key not in _IDEAL:
         prob = _problem(kind, order_str, wsource, cmult)
         init = _init_vector(init_deg, len(prob["nets"]))
-        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=int(reps), maxiter=MAXITER, init=init)
+        # n grande (25q): cada evaluacion del statevector denso cuesta ~17s, asi que
+        # se recorta el numero de iteraciones de COBYLA.
+        maxiter = MAXITER if len(prob["nets"]) <= 18 else 12
+        qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=int(reps), maxiter=maxiter, init=init)
         _IDEAL[key] = {
             "prob": prob,
             "probs": np.asarray(qa["probabilities"], dtype=float),
@@ -397,6 +435,9 @@ def _nets_and_default(kind):
     if kind == "2adc":
         from . import problem2
         return list(problem2.NETS_2ADC), list(problem2.OUT_ORDER)
+    if kind == "25":
+        from . import problem25
+        return list(problem25.NETS_25), list(problem25.OUT_ORDER)
     return list(M.NETS), list(M.RIGHT_ORDER)
 
 
@@ -436,7 +477,7 @@ def get_problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
     return {
         "source": "problem",
         "loading": True,
-        "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind == "2adc" else 1,
+        "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind in ("2adc", "25") else 1,
                  "wsource": wsource, "cmult": float(cmult)},
         "nets": nets,
         "in_order": nets,
@@ -445,6 +486,67 @@ def get_problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
         "weights": [[float(prob["W"][i][j]) for j in range(n)] for i in range(n)],
         "assignments": {"before": before_bits, "before_layers": _layer_members(before_bits, nets)},
         "costs": {"before": before},
+    }
+
+
+def _classical_benchmark(prob, budget=200, trials=5, seed=12345, exact_max=18):
+    """Compara QAOA contra busqueda clasica (greedy local + simulated annealing).
+
+    Mismo C(x) penalizado; los clasicos van restringidos a asignaciones factibles
+    (flips por componente). Devuelve el optimo exacto (si n <= exact_max) y, por
+    metodo, el mejor/mediana de `trials` corridas con `budget` evaluaciones de C(x).
+    """
+    from . import classical as C
+
+    n = len(prob["nets"])
+    A = np.asarray(prob["W"], dtype=float).copy()
+    conflicts = tuple(sorted(tuple(sorted(p)) for p in prob["conflicts"]))
+    Mpen = float(prob["M"])
+    for i, j in conflicts:
+        A[i, j] += Mpen
+        A[j, i] += Mpen
+    b = float(prob["lam_v"]) * np.asarray(prob["vias"], dtype=float)
+
+    exact_cost = None
+    if n <= exact_max:
+        try:
+            _, _, exact_cost, _ = C.exact(n, A, b, conflicts)
+        except Exception:  # noqa: BLE001
+            exact_cost = None
+
+    def gap_of(x):
+        return round(float(x - exact_cost), 6) if exact_cost is not None else None
+
+    def succ_of(vals):
+        if exact_cost is None:
+            return None
+        return round(float(np.mean([abs(x - exact_cost) < 1e-8 for x in vals])), 3)
+
+    rng = np.random.default_rng(seed)
+    methods = []
+    for mid, name, fn in (("greedy", "Greedy local search", C.greedy_local),
+                          ("anneal", "Simulated annealing", C.simulated_annealing)):
+        bests, times, evals = [], [], 0
+        for _ in range(int(trials)):
+            r = np.random.default_rng(int(rng.integers(1, 2 ** 31)))
+            t0 = time.perf_counter()
+            best, _bits, ev = fn(A, b, conflicts, r, int(budget))
+            times.append((time.perf_counter() - t0) * 1000.0)
+            bests.append(float(best))
+            evals = ev
+        methods.append({
+            "id": mid, "name": name,
+            "best": round(min(bests), 6),
+            "median": round(float(np.median(bests)), 6),
+            "evals": int(evals),
+            "time_ms": round(float(np.median(times)), 2),
+            "success": succ_of(bests),
+            "gap": gap_of(min(bests)),
+        })
+    return {
+        "budget": int(budget), "trials": int(trials),
+        "exact": (round(float(exact_cost), 6) if exact_cost is not None else None),
+        "methods": methods,
     }
 
 
@@ -513,6 +615,18 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
             "violations": bd["violations"],
         })
 
+    # --- classical benchmark (greedy local + simulated annealing vs QAOA) ---
+    bench = _classical_benchmark(prob)
+    bench["methods"].append({
+        "id": "qaoa", "name": "QAOA (best produced)",
+        "best": best_cost, "median": best_cost,
+        "evals": len(hist), "time_ms": None,
+        "success": (None if bench["exact"] is None
+                    else (1.0 if abs(best_cost - bench["exact"]) < 1e-8 else 0.0)),
+        "gap": (None if bench["exact"] is None
+                else round(float(best_cost - bench["exact"]), 6)),
+    })
+
     return {
         "source": "qaoa",
         "meta": {
@@ -520,7 +634,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
             "num_qubits": qa["num_qubits"],
             "num_parameters": qa["num_parameters"],
             "reps": int(reps),
-            "adcs": 2 if kind == "2adc" else 1,
+            "adcs": 2 if kind in ("2adc", "25") else 1,
             "wsource": wsource,
             "cmult": float(cmult),
             "approx_gap": round(gap, 6) if gap is not None else None,
@@ -538,6 +652,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
         },
         "costs": {"before": before, "after": after},
         "exact": {"cost": round(float(exact_cost), 6) if exact_cost is not None else None},
+        "benchmark": bench,
         "convergence": {
             "x": list(range(len(hist))),
             "energy": [round(v, 4) for v in hist],

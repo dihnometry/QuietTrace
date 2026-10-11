@@ -42,12 +42,19 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
   and **COMSOL weights**. The local dev preview (`dev/app-local.html`, via `window.__QT_DEV__`)
   unlocks them so you can experiment. The console prints a banner with the project/team name,
   the active settings and the backend.
+- **Dev-only: 25 qubits.** The dev preview also offers a synthetic **25-net** tab (dense 2^25
+  statevector, `quantum/problem25.py`); it is hidden in the export. The QAOA there runs with a
+  capped COBYLA (each statevector evaluation is ~15 s).
 - **Connections:** edit the **ADC→FPGA order** (comma-separated net names, e.g.
   `D2,D4,D0,D1,D3,D5,D7,D6,CLK`). It rebuilds conflicts/weights and redraws. An order whose
   conflict graph is not 2-colorable falls back to the default (shown in the UI). (For 18 qubits
   the exact reference is skipped: 2^18 enumeration is costly.)
-- **Charts:** *Cost breakdown*, *Circuit distribution*, *QAOA convergence* (energy per
-  iteration), *Possible configurations* (log/linear toggle) and *Coupling matrix*.
+- **Charts:** *Cost breakdown*, *Circuit distribution* (from **running the optimized circuit**),
+  *QAOA convergence* (**during optimization**, ⟨H_C⟩ per iteration), *Possible configurations*
+  (log/linear toggle), *Classical benchmark* (QAOA vs greedy local search + simulated annealing
+  on the same penalized cost) and *Coupling matrix*.
+- **Solution evolution** shows the most probable state **at each iteration of the local
+  optimization** (not the final circuit's output).
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend
   result.
 - Each chart has an **expand (⤢)** button that opens it larger in a modal.

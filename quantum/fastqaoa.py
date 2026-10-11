@@ -31,26 +31,29 @@ para que COBYLA recorra exactamente la misma trayectoria que en `qaoa.py`.
 import numpy as np
 
 
-def _cost_vector(J, h):
+def _cost_vector(J, h, chunk=1 << 20):
     """Vector C(k) para todos los k en [0, 2**n) (precalculado una sola vez).
 
-    La diagonal de J se ignora porque el operador de costo sólo incluye i < j.
+    Se calcula por TROZOS para no materializar la matriz (2**n, n) de bits: a
+    n=25 (33.5M estados) esa matriz en float64 pediria ~6.25 GiB. La diagonal de
+    J se ignora porque el operador de costo solo incluye i < j.
     """
     J = np.asarray(J, dtype=float)
     h = np.asarray(h, dtype=float)
     n = len(h)
+    size = 1 << n
 
-    # índice entero de cada estado base y sus bits (bit i = (k >> i) & 1)
-    k = np.arange(1 << n, dtype=np.int64)
-    x = ((k[:, None] >> np.arange(n)) & 1).astype(float)   # (2**n, n)
-    s = 1.0 - 2.0 * x                                     # (+1 / -1)
-
-    # sum_i h_i s_i
-    cost = s @ h
-    # sum_{i<j} J_ij s_i s_j = 0.5 * s^T J s  (J simétrica y sin diagonal)
     J_off = J.copy()
     np.fill_diagonal(J_off, 0.0)
-    cost = cost + 0.5 * np.einsum("ki,ij,kj->k", s, J_off, s)
+
+    cost = np.empty(size, dtype=float)
+    bits = np.arange(n)
+    for lo in range(0, size, chunk):
+        hi = min(lo + chunk, size)
+        k = np.arange(lo, hi, dtype=np.int64)
+        s = 1.0 - 2.0 * ((k[:, None] >> bits) & 1).astype(float)   # (trozo, n)
+        t = s @ J_off                                              # BLAS (trozo, n)
+        cost[lo:hi] = s @ h + 0.5 * np.einsum("ki,ki->k", t, s)
     return cost
 
 
