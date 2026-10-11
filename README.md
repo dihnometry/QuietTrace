@@ -76,12 +76,6 @@ PYTHON=/path/to/python ./scripts/export-model.sh
 ./scripts/preview.sh                             # http://localhost:8000/dev/preview.html
 ```
 
-**Regenerate the README figures**
-
-```bash
-python scripts/make_figures.py
-```
-
 ## Results
 
 Benchmark of QAOA against classical search on the **same penalized cost**, with COMSOL weights, a budget of 150 evaluations and 10 independent runs per method (`scripts/benchmark.py`, raw data in `benchmark_results.csv`). The conflict weight follows the defaults under *Settings*: $\times 1$ for 1 ADC and $\times 5$ for 2 ADC (3 072 shots). QAOA is an exact statevector **simulation**, not a run on a quantum computer. *Success* means the method returned the exact optimum.
@@ -129,6 +123,41 @@ The exact optimum is found instantly by enumerating only the feasible colorings 
 - **A different objective from classic layer assignment.** Two-layer via minimization is known to map to Max-Cut [2]. QuietTrace instead weights *same-layer coupling* by a simulated capacitance and keeps the crossing rule as a hard constraint.
 - **A working end-to-end app**: interactive PCB before/after view, convergence, circuit distribution, a possible-configurations histogram and the coupling matrix, running on Qollab.
 - **Auditable simulation**: a fast exact NumPy QAOA for the app and a Qiskit `QAOAAnsatz` reference for checking it.
+
+## Component reduction (exact presolve)
+
+Available in the app as **Model: Full / Reduced**. Design and implementation notes (in Spanish): [`docs/COMPONENT_REDUCTION.md`](docs/COMPONENT_REDUCTION.md); code in `quantum/reduced.py` and `scripts/reduction_experiment.py`.
+
+Every crossing is an XOR constraint, $x_i \oplus x_j = 1$. If the conflict graph is bipartite with $k$ connected components, the valid assignments are exactly the $2^k$ colourings, with one free bit per component:
+
+$$
+x_i = b_i \oplus y_{c(i)},
+$$
+
+where $b$ is a reference colouring and $c(i)$ is the component of net $i$. A linear-time graph search finds $b$ and the components (a presolve step, not an optimisation). The crossing penalty disappears and the cost becomes an Ising model on $k$ variables, with $Z_c = (-1)^{y_c}$:
+
+$$
+C(\mathbf{y}) = C_0 + \sum_{c \lt d} J_{cd}\, Z_c Z_d ,
+\qquad
+J_{cd} = \tfrac12 \sum_{i \in c,\; j \in d} W_{ij}\,(-1)^{b_i \oplus b_j} .
+$$
+
+Pairs inside a component only add to the constant $C_0$. The couplings $J_{cd}$ can be positive or negative, so this is **not** a standard Max-Cut. The minimum of the reduced cost equals the optimum of the original problem, and the standard X mixer is enough because every bitstring is valid.
+
+| Instance | Nets $n$ | Components $k$ | Valid states | Full space |
+| -------- | -------- | -------------- | ------------ | ---------- |
+| 1 ADC    | 9        | 4              | 16           | 512        |
+| 2 ADC    | 18       | 1              | 2            | 262 144    |
+
+On synthetic instances built with $k$ components, reduced QAOA reached the exact optimum in `syn9` (9 qubits, cost 13.7053, all samples valid) and `syn18` (18 qubits, cost 28.6714). The full 18-qubit formulation on `syn9` reached 14.7591 with 0.11 valid mass. That is one synthetic instance, not a statistical claim. On `synv` (18 qubits, groups of 2/3/4 nets), reduced QAOA at $p=3$ missed the optimum by about 2.2% while greedy, annealing and exhaustive search found it.
+
+**What it means**
+
+- On the real boards $k$ is tiny (18 nets collapse to one decision), so the reduction makes them trivial for any method. This is why classical search finds the optimum instantly.
+- To avoid a false advantage, the reduced benchmark runs every method in the same reduced space ($2^k$); it never compares reduced QAOA with methods that ignore the reduction.
+- It is exact only for hard XOR constraints. With three layers the constraint becomes a 3-colouring, which is no longer $2^k$ (a component of 5 nets has 36 valid states instead of 2).
+- The next step is to enrich the model (more layers, weighted conflicts) so the optimisation stays hard after the reduction.
+
 
 ## Limitations
 
