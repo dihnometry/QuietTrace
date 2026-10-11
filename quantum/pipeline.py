@@ -50,7 +50,7 @@ def _parse_order(nets, order_str, default):
     return list(default)
 
 
-def _build_problem(nets, order, wsource="geom"):
+def _build_problem(nets, order, wsource="geom", cmult=1.0):
     routes = M.make_routes(nets, order)
     conflicts = M.find_conflicts(nets, routes)
     if wsource == "comsol":
@@ -62,16 +62,18 @@ def _build_problem(nets, order, wsource="geom"):
     lam_v = LAMBDA_V
     feasible = M.conflict_coloring(len(nets), conflicts)  # raises if not bipartite
     upper = M.soft_cost(feasible, W, vias, lam_v)
-    Mpen = upper + max(1.0, 0.05 * upper)
+    # M0 basta para que el optimo exacto sea factible; cmult lo refuerza para QAOA
+    # (a 18 qubits hay solo 2 estados factibles y hace falta un penalty mayor).
+    Mpen = (upper + max(1.0, 0.05 * upper)) * float(cmult)
     Q, cQ, J, h, cI = M.build_model(W, vias, lam_v, conflicts, M=Mpen)
     return {
         "nets": list(nets), "in_order": list(nets), "out_order": list(order),
         "conflicts": conflicts, "W": W,
-        "vias": vias, "lam_v": lam_v, "M": Mpen, "J": J, "h": h,
+        "vias": vias, "lam_v": lam_v, "M": Mpen, "cmult": float(cmult), "J": J, "h": h,
     }
 
 
-def _problem(kind="1adc", order_str=None, wsource="geom"):
+def _problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
     if kind == "2adc":
         from . import problem2
         nets = list(problem2.NETS_2ADC)
@@ -82,10 +84,10 @@ def _problem(kind="1adc", order_str=None, wsource="geom"):
 
     order = _parse_order(nets, order_str, default)
     try:
-        return _build_problem(nets, order, wsource)
+        return _build_problem(nets, order, wsource, cmult)
     except ValueError:
         # order makes the conflict graph non-bipartite -> fall back to default
-        return _build_problem(nets, default, wsource)
+        return _build_problem(nets, default, wsource, cmult)
 
 
 def _bits_from_index(k, n):
@@ -207,14 +209,14 @@ def _counts_metrics(counts, prob, probs):
     return out
 
 
-def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
     Follows Qollab's one-job-per-run rule on IonQ: no iteration against the QPU;
     it optimizes with the fast simulator and sends a single circuit.
     Returns the measured counts.
     """
-    prob = _problem(kind, order_str, wsource)
+    prob = _problem(kind, order_str, wsource, cmult)
     init = _init_vector(init_deg, len(prob["nets"]))
     qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter, init=init)
 
@@ -312,12 +314,12 @@ def _fields_from_counts(counts, prob, n):
 _IDEAL = {}
 
 
-def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
     init_deg = _py_none(init_deg)
     order_str = _py_none(order_str)
-    key = (kind, init_deg, order_str, wsource)
+    key = (kind, init_deg, order_str, wsource, float(cmult))
     if key not in _IDEAL:
-        prob = _problem(kind, order_str, wsource)
+        prob = _problem(kind, order_str, wsource, cmult)
         init = _init_vector(init_deg, len(prob["nets"]))
         qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
         _IDEAL[key] = {
@@ -329,13 +331,13 @@ def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     return _IDEAL[key]
 
 
-def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
     """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
 
     No usa el backend: sirve para ver el efecto del numero de shots (ruido de
     muestreo) sobre las metricas y sobre 'encontrar el optimo'.
     """
-    ideal = _ideal_cached(kind, init_deg, order_str, wsource)
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult)
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
@@ -422,8 +424,8 @@ def random_order(kind="1adc"):
     return {"order": order}
 
 
-def get_problem(kind="1adc", order_str=None, wsource="geom"):
-    prob = _problem(kind, order_str, wsource)
+def get_problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
+    prob = _problem(kind, order_str, wsource, cmult)
     nets = prob["nets"]
     n = len(nets)
     before_bits = [0] * n
@@ -433,7 +435,7 @@ def get_problem(kind="1adc", order_str=None, wsource="geom"):
         "source": "problem",
         "loading": True,
         "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind == "2adc" else 1,
-                 "wsource": wsource},
+                 "wsource": wsource, "cmult": float(cmult)},
         "nets": nets,
         "in_order": nets,
         "out_order": list(prob["out_order"]),
@@ -444,10 +446,10 @@ def get_problem(kind="1adc", order_str=None, wsource="geom"):
     }
 
 
-def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
-    # Una sola optimización QAOA por (kind, init, order, wsource): reutiliza la caché
+def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0):
+    # Una sola optimización QAOA por (kind, init, order, wsource, cmult): reutiliza la caché
     # (evita correr QAOA dos veces si el mismo problema se pide de nuevo).
-    ideal = _ideal_cached(kind, init_deg, order_str, wsource)
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult)
     prob = ideal["prob"]
     qa = ideal["qa"]
     nets = prob["nets"]
@@ -519,6 +521,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
             "reps": REPS,
             "adcs": 2 if kind == "2adc" else 1,
             "wsource": wsource,
+            "cmult": float(cmult),
             "approx_gap": round(gap, 6) if gap is not None else None,
         },
         "nets": nets,

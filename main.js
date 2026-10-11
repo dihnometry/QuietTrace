@@ -26,7 +26,7 @@ let MODEL = null;
 async function refreshProblem() {
   setStatus('Updating problem…');
   try {
-    const p = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW)).toJs();
+    const p = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW, currentC())).toJs();
     p.status = 'idle';
     render(p);   // BEFORE + non-QAOA now; AFTER/QAOA show "press ▶ Run"
     setStatus('Settings changed — press ▶ Run to run QAOA.');
@@ -67,6 +67,13 @@ const currentOrder = () => {
   return v || null;   // comma-separated ADC->FPGA order, or null = default
 };
 
+const cmultEl = () => document.getElementById('cmult');
+const currentC = () => {
+  const el = cmultEl();
+  const v = el ? Number(el.value) : 1;
+  return Number.isFinite(v) && v > 0 ? v : 1;   // conflict-penalty multiplier
+};
+
 function reportOrder() {
   const el = orderEl();
   const st = document.getElementById('order-status');
@@ -83,18 +90,18 @@ function reportOrder() {
 async function runPipeline() {
   const hasBackend = hasBackendNow();
   setStatus('Building problem…');
-  const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW)).toJs();
+  const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW, currentC())).toJs();
   problem.status = 'running';
   render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = Running
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
-  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW)).toJs();
+  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC())).toJs();
 
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(
-        backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
+        backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW, currentC())).toJs();
       const over = q.derived;
       model.ideal_distribution = model.distribution;
       model.distribution = over.distribution;
@@ -160,6 +167,8 @@ wTabs.forEach((b) => {
 {
   const el = orderEl();
   if (el) { el.oninput = () => scheduleProblem(false); el.onchange = () => scheduleProblem(true); }
+  const cm = cmultEl();
+  if (cm) cm.onchange = () => scheduleProblem(true);
   const reset = document.getElementById('order-reset');
   if (reset) reset.onclick = () => { const el2 = orderEl(); if (el2) el2.value = ''; scheduleProblem(true); };
   const rnd = document.getElementById('random');
@@ -235,7 +244,7 @@ async function openConnections() {
       order = parseOrderList(currentOrder(), nets) || MODEL.out_order || nets.slice();
     } else {
       setStatus('Loading problem…');
-      const p = (await pipeline.get_problem.callPromising(currentKind, null, currentW)).toJs();
+      const p = (await pipeline.get_problem.callPromising(currentKind, null, currentW, currentC())).toJs();
       nets = p.nets.slice();
       order = parseOrderList(currentOrder(), nets) || p.out_order || nets.slice();
     }

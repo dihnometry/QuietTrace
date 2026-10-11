@@ -18,6 +18,14 @@
     <span class="view-label controls-sep">Weights</span>
     <button class="tab w-tab" data-w="geom" type="button">Geometric</button>
     <button class="tab w-tab" data-w="comsol" type="button" title="COMSOL 6.1 mutual capacitance (quasi-electrostatic proxy)">COMSOL</button>
+    <span class="view-label controls-sep">Conflict weight</span>
+    <select id="cmult" class="cmult-input" aria-label="Conflict penalty multiplier" title="Penalty M for the conflict constraints: higher pushes QAOA to feasible states (needed at 18 qubits, but it can hurt 9 qubits)">
+      <option value="1">×1</option>
+      <option value="2">×2</option>
+      <option value="3">×3</option>
+      <option value="5">×5</option>
+      <option value="8">×8</option>
+    </select>
     <span class="view-label controls-sep">Connections (ADC → FPGA order)</span>
     <input id="order" class="order-input" type="text" spellcheck="false" autocomplete="off"
            placeholder="e.g. D2,D4,D0,D1,D3,D5,D7,D6,CLK" aria-label="FPGA input order" />

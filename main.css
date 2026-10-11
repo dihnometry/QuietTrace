@@ -402,6 +402,12 @@ body.modal-open { overflow: hidden; }
 }
 .order-status { color: #ffb86c; }
 
+.cmult-input {
+  font: inherit; font-size: 0.9rem; color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--edge); border-radius: 6px; padding: 4px 8px;
+}
+
 /* boton Run */
 .run-btn {
   margin-left: auto;
