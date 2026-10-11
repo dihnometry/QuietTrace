@@ -98,7 +98,8 @@ const PRESETS = {
   '1adc': { reps: 3, cmult: 1 },
   '2adc': { reps: 3, cmult: 5 },
   '25': { reps: 1, cmult: 5 },
-  'syn9': { reps: 3, cmult: 5 },
+  'syn9': { reps: 3, cmult: 5, model: 'reduced' },
+  'syn18': { reps: 3, cmult: 5, model: 'reduced' },
 };
 
 function applyPreset(kind) {
@@ -106,6 +107,10 @@ function applyPreset(kind) {
   const pre = PRESETS[kind] || PRESETS['1adc'];
   const r = repsEl(); if (r) r.value = String(pre.reps);
   const c = cmultEl(); if (c) c.value = String(pre.cmult);
+  if (pre.model) {
+    currentModel = pre.model;
+    modelTabs.forEach((x) => x.classList.toggle('active', x.dataset.model === currentModel));
+  }
 }
 
 function reportOrder() {
@@ -130,7 +135,6 @@ async function runPipeline() {
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC(), currentP(), currentModel)).toJs();
-  if (!DEV) delete model.reduction;   // reduccion por componentes: solo dev
 
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');

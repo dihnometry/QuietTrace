@@ -513,6 +513,7 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
     absoluto y el gap relativo (%) respecto al optimo.
     """
     from . import classical as C
+    from . import reduced as _red
 
     n = len(prob["nets"])
     A = np.asarray(prob["W"], dtype=float).copy()
@@ -523,10 +524,22 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
         A[j, i] += Mpen
     b = float(prob["lam_v"]) * np.asarray(prob["vias"], dtype=float)
 
+    # Optimo exacto por el coste reducido VECTORIZADO (2**k): MISMO espacio factible
+    # que los clasicos (flips por componente) y que el QAOA reducido. NO se enumera
+    # 2**n (inviable a n grande); el benchmark completo queda en el espacio reducido,
+    # para que la comparacion sea justa (nada de "supremacia" por el encoding).
     exact_cost = None
     exact_bits = None
+    red_ms = None
+    kk = None
     try:
-        exact_cost, exact_bits, _n_opt, _n_feas = C.feasible_optimum(A, b, conflicts)
+        base, _groups, comp_of, kk = _red.reduce_problem(prob)
+        t0 = time.perf_counter()
+        rcost = _red.reduced_cost_vector(prob, base, comp_of, kk)
+        red_ms = (time.perf_counter() - t0) * 1000.0
+        m = int(np.argmin(rcost))
+        exact_cost = float(rcost[m])
+        exact_bits = [int(v) for v in _red.x_from_y(base, comp_of, [(m >> c) & 1 for c in range(kk)])]
     except Exception:  # noqa: BLE001
         exact_cost = None
 
@@ -576,21 +589,20 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
             "gap_pct_worst": (round(float(max(gaps)), 4) if gaps else None),
         })
 
-    # --- referencia PERFECTA: busqueda exhaustiva de los 2**n estados ---
-    t0 = time.perf_counter()
-    ex_best, ex_bits, ex_evals = C.exhaustive(A, b)
-    ex_ms = (time.perf_counter() - t0) * 1000.0
-    methods.append({
-        "id": "exhaustive", "name": "Exhaustive search (all 2^n)",
-        "best": round(float(ex_best), 6),
-        "median": round(float(ex_best), 6),
-        "worst": round(float(ex_best), 6),
-        "state": state_of(ex_bits),
-        "evals": int(ex_evals),
-        "time_ms": round(ex_ms, 2),
-        "success": 1.0, "gap": 0.0, "gap_pct": 0.0,
-        "gap_pct_median": 0.0, "gap_pct_worst": 0.0,
-    })
+    # --- referencia exacta: enumeracion del espacio REDUCIDO (2**k) ---
+    # Mismo espacio que los clasicos y que el QAOA reducido (comparacion justa).
+    if kk is not None:
+        methods.append({
+            "id": "exhaustive", "name": f"Exhaustive (feasible 2^{kk})",
+            "best": round(float(exact_cost), 6),
+            "median": round(float(exact_cost), 6),
+            "worst": round(float(exact_cost), 6),
+            "state": state_of(exact_bits),
+            "evals": int(1 << kk),
+            "time_ms": round(float(red_ms), 2),
+            "success": 1.0, "gap": 0.0, "gap_pct": 0.0,
+            "gap_pct_median": 0.0, "gap_pct_worst": 0.0,
+        })
 
     return {
         "budget": int(budget), "trials": int(trials),
@@ -719,6 +731,13 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
 def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=1.0, reps=REPS, model="full"):
     if model == "reduced":
         return _reduced_model(kind, init_deg, order_str, wsource, cmult, reps)
+    # Guarda: el modelo completo es statevector denso (2^n). A partir de ~22 qubits
+    # no es simulable; en esas instancias hay que usar Model: Reduced.
+    _n = len(_problem(kind, order_str, wsource, cmult)["nets"])
+    if _n > 22:
+        raise ValueError(
+            f"full model needs {_n} qubits (2^{_n} states) — not simulatable. "
+            f"Choose Model: Reduced (k qubits).")
     # Una sola optimización QAOA por (kind, init, order, wsource, cmult, reps).
     ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
     prob = ideal["prob"]

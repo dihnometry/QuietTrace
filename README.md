@@ -29,6 +29,9 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
 - **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**.
+- **Model:** switch between **Full · n qubits** (one qubit per trace, conflict penalties) and
+  **Reduced · k qubits** (one qubit per *independent conflict group*; feasible by construction,
+  no penalties). The exact reformulation is documented in `docs/COMPONENT_REDUCTION.md`.
 - **Weights:** switch between the **Geometric** heuristic and the **COMSOL 6.1** mutual
   capacitance (quasi-electrostatic proxy) — same QAOA, so you can compare how the layer
   assignment changes when the weights go from a geometric heuristic to an electrostatic estimate.
