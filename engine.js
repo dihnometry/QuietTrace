@@ -297,16 +297,17 @@ function chartCard(title, inner) {
   const badge = CHART_SOURCE
     ? `<span class="chart-src${CHART_SOURCE === 'mock' ? ' mock' : ''}">${esc(CHART_SOURCE)}</span>`
     : '';
-  return `<div class="chart" style="animation-delay:${dly}s"><h3><span class="chart-title">${esc(title)}</span> ${badge}<button class="chart-expand" type="button" title="Expand" aria-label="Expand chart">⤢</button></h3>${inner}</div>`;
+  return `<div class="chart" style="animation-delay:${dly}s"><h3><span class="chart-title">${esc(title)}</span> ${badge}<button class="chart-expand" type="button" title="Expand" aria-label="Expand chart">⤢</button></h3><div class="chart-body">${inner}</div></div>`;
 }
 
 function openChartModal(card) {
   const modal = document.getElementById('chart-modal');
   if (!modal || !card) return;
   const t = card.querySelector('.chart-title');
+  const body = card.querySelector('.chart-body');
   const svg = card.querySelector('svg');
   modal.querySelector('.modal-title').textContent = t ? t.textContent : '';
-  modal.querySelector('.modal-body').innerHTML = svg ? svg.outerHTML : '';
+  modal.querySelector('.modal-body').innerHTML = body ? body.innerHTML : (svg ? svg.outerHTML : '');
   modal.hidden = false;
   document.body.classList.add('modal-open');
 }
@@ -459,10 +460,10 @@ function combosCard(scale) {
 function classicalBenchmark(bench) {
   const secs = (ms) => `${fmt(ms / 1000, 2)} s`;
   const rows = (bench.methods || []).map((m) => {
-    const gap = (m.gap == null) ? '—' : fmt(m.gap, 4);
     const gapPct = (m.gap_pct == null) ? '—' : `${fmt(m.gap_pct, 3)}%`;
     const succ = (m.success == null) ? '—' : `${Math.round(m.success * 100)}%`;
     const median = (m.median == null) ? '—' : fmt(m.median, 4);
+    const state = m.state ? `<code class="bits">${esc(m.state)}</code>` : '—';
     let time = '—';
     if (m.time_opt_ms != null && m.time_exec_ms != null) {
       time = `${secs(m.time_opt_ms + m.time_exec_ms)}`
@@ -474,16 +475,17 @@ function classicalBenchmark(bench) {
     }
     const cls = m.id === 'qaoa' ? ' class="qaoa"' : '';
     return `<tr${cls}><td>${esc(m.name)}</td><td>${fmt(m.best, 4)}</td><td>${median}</td>`
-      + `<td>${gap}</td><td>${gapPct}</td><td>${m.evals == null ? '—' : m.evals}</td>`
+      + `<td>${state}</td><td>${gapPct}</td><td>${m.evals == null ? '—' : m.evals}</td>`
       + `<td>${time}</td><td>${succ}</td></tr>`;
   }).join('');
   const exact = bench.exact == null ? '—' : fmt(bench.exact, 4);
-  const inner = `<p class="note">Exact optimum <strong>${exact}</strong> · ${bench.budget} cost `
-    + `evaluations × ${bench.trials} trials. Classical search is restricted to feasible assignments; `
-    + `QAOA is unconstrained (it may emit conflicts). <strong>QAOA time = local optimization + circuit `
-    + `execution</strong> on the backend (shown as "opt + exec"). Gap = best − exact; Gap % is relative.</p>`
+  const exactState = bench.exact_state ? `<code class="bits">${esc(bench.exact_state)}</code>` : '—';
+  const inner = `<p class="note">Exact optimum <strong>${exact}</strong> at state ${exactState} · `
+    + `${bench.budget} cost evaluations × ${bench.trials} trials. Classical search is restricted to `
+    + `feasible assignments; QAOA is unconstrained. <strong>QAOA time = local optimization + circuit `
+    + `execution</strong> on the backend ("opt + exec"). Gap % = how far each method is from the optimum.</p>`
     + `<table class="bench"><thead><tr><th>Method</th><th>Best cost</th><th>Median</th>`
-    + `<th>Gap</th><th>Gap %</th><th>Evals</th><th>Time</th><th>Success</th></tr></thead>`
+    + `<th>Best state</th><th>Gap %</th><th>Evals</th><th>Time</th><th>Success</th></tr></thead>`
     + `<tbody>${rows}</tbody></table>`;
   return chartCard('Classical benchmark · QAOA vs classical search', inner);
 }

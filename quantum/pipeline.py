@@ -517,10 +517,14 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
     b = float(prob["lam_v"]) * np.asarray(prob["vias"], dtype=float)
 
     exact_cost = None
+    exact_bits = None
     try:
-        exact_cost, _n_opt, _n_feas = C.feasible_optimum(A, b, conflicts)
+        exact_cost, exact_bits, _n_opt, _n_feas = C.feasible_optimum(A, b, conflicts)
     except Exception:  # noqa: BLE001
         exact_cost = None
+
+    def state_of(bits):
+        return None if bits is None else "".join(str(int(v)) for v in bits)
 
     def gap_of(x):
         return round(float(x - exact_cost), 6) if exact_cost is not None else None
@@ -539,28 +543,48 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
     methods = []
     for mid, name, fn in (("greedy", "Greedy local search", C.greedy_local),
                           ("anneal", "Simulated annealing", C.simulated_annealing)):
-        bests, times, evals = [], [], 0
+        bests, states, times, evals = [], [], [], 0
         for _ in range(int(trials)):
             r = np.random.default_rng(int(rng.integers(1, 2 ** 31)))
             t0 = time.perf_counter()
-            best, _bits, ev = fn(A, b, conflicts, r, int(budget))
+            best, bits, ev = fn(A, b, conflicts, r, int(budget))
             times.append((time.perf_counter() - t0) * 1000.0)
             bests.append(float(best))
+            states.append(bits)
             evals = ev
+        k = int(np.argmin(bests))
         methods.append({
             "id": mid, "name": name,
             "best": round(min(bests), 6),
             "median": round(float(np.median(bests)), 6),
             "worst": round(max(bests), 6),
+            "state": state_of(states[k]),
             "evals": int(evals),
             "time_ms": round(float(np.median(times)), 2),
             "success": succ_of(bests),
             "gap": gap_of(min(bests)),
             "gap_pct": gap_pct_of(min(bests)),
         })
+
+    # --- referencia PERFECTA: busqueda exhaustiva de los 2**n estados ---
+    t0 = time.perf_counter()
+    ex_best, ex_bits, ex_evals = C.exhaustive(A, b)
+    ex_ms = (time.perf_counter() - t0) * 1000.0
+    methods.append({
+        "id": "exhaustive", "name": "Exhaustive search (all 2^n)",
+        "best": round(float(ex_best), 6),
+        "median": round(float(ex_best), 6),
+        "worst": round(float(ex_best), 6),
+        "state": state_of(ex_bits),
+        "evals": int(ex_evals),
+        "time_ms": round(ex_ms, 2),
+        "success": 1.0, "gap": 0.0, "gap_pct": 0.0,
+    })
+
     return {
         "budget": int(budget), "trials": int(trials),
         "exact": (round(float(exact_cost), 6) if exact_cost is not None else None),
+        "exact_state": state_of(exact_bits),
         "methods": methods,
     }
 
@@ -636,6 +660,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
     bench["methods"].append({
         "id": "qaoa", "name": "QAOA (best produced)",
         "best": best_cost, "median": best_cost, "worst": best_cost,
+        "state": "".join(str(int(v)) for v in best_x),
         "evals": len(hist),
         "time_ms": round(float(ideal.get("qaoa_ms") or 0.0), 2),
         "time_opt_ms": round(float(ideal.get("qaoa_ms") or 0.0), 2),

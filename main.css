@@ -191,8 +191,9 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(min(430px, 100%), 1fr));
   gap: 1rem;
 }
-.chart { padding: 0.85rem 1rem 1rem; }
+.chart { padding: 0.85rem 1rem 1rem; min-width: 0; }
 .chart h3 { margin: 0 0 0.4rem; font-size: 1rem; font-weight: 600; color: var(--fg); }
+.chart-body { min-width: 0; overflow-x: auto; }
 .chart svg { display: block; width: 100%; height: auto; max-width: 760px; margin-inline: auto; }
 
 .foot {
@@ -336,12 +337,14 @@ body {
 .qpu-line { margin: 0 0 0.5rem; font-size: 1rem; color: var(--fg); }
 
 /* tabla del benchmark clasico */
-.bench { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.82rem; }
-.bench th, .bench td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+.bench { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.76rem; }
+.bench th, .bench td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
 .bench th:first-child, .bench td:first-child { text-align: left; }
-.bench th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.bench th { color: var(--muted); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .bench tr.qaoa td { color: var(--accent); font-weight: 700; }
-.bench-sub { display: block; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
+.bench tr:last-child td { border-bottom: none; }
+.bench-sub { display: block; font-size: 0.64rem; color: var(--muted); font-weight: 400; }
+.bits { font: 0.72rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); letter-spacing: 0.06em; }
 
 /* boton de expandir en cada grafica */
 .chart h3 { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
@@ -387,10 +390,12 @@ body {
 .modal-close:hover { color: var(--fg); border-color: var(--accent); }
 .modal-body {
   flex: 1 1 auto; min-height: 0;
-  display: flex; align-items: center; justify-content: center;
-  padding: 0.9rem; overflow: hidden;
+  display: block; padding: 0.9rem; overflow: auto;
 }
-.modal-body svg { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+.modal-body svg { display: block; width: 100%; height: auto; max-width: 100%; margin-inline: auto; }
+.modal-body .bench { font-size: 0.95rem; }
+.modal-body .bench-sub { font-size: 0.78rem; }
+.modal-body .bits { font-size: 0.9rem; }
 body.modal-open { overflow: hidden; }
 
 @media (max-width: 700px) {

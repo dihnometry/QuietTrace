@@ -167,6 +167,7 @@ def feasible_optimum(A, b, conflicts):
     groups = components(n, conflicts)
     base = feasible_coloring(n, conflicts)
     best = np.inf
+    best_bits = None
     n_opt = 0
     for mask in range(1 << len(groups)):
         x = base.copy()
@@ -176,10 +177,42 @@ def feasible_optimum(A, b, conflicts):
         c = cost(x, A, b)
         if c < best - 1e-9:
             best = c
+            best_bits = x.copy()
             n_opt = 1
         elif abs(c - best) <= 1e-9:
             n_opt += 1
-    return float(best), int(n_opt), int(1 << len(groups))
+    return float(best), best_bits, int(n_opt), int(1 << len(groups))
+
+
+def exhaustive(A, b, chunk=1 << 20):
+    """Busqueda exhaustiva PERFECTA: explora los 2**n estados y devuelve el minimo global.
+
+    Calcula C(x) por trozos con BLAS (nada de bucles O(n^2) sobre 2**n), asi que a
+    n=25 (33.5M estados) tarda ~10 s. Devuelve (best_cost, bits, n_estados).
+    """
+    n = len(b)
+    size = 1 << n
+    A_off = np.asarray(A, dtype=float).copy()
+    np.fill_diagonal(A_off, 0.0)
+    b = np.asarray(b, dtype=float)
+    a_sum = 0.25 * float(A_off.sum())
+    b_sum = 0.5 * float(b.sum())
+
+    best = np.inf
+    best_bits = None
+    bits = np.arange(n)
+    for lo in range(0, size, chunk):
+        hi = min(lo + chunk, size)
+        k = np.arange(lo, hi, dtype=np.int64)
+        x = (k[:, None] >> bits) & 1
+        s = 1.0 - 2.0 * x.astype(float)
+        # C = 0.25*sum(A) + 0.25*s^T A s + b.x  (con x=(1-s)/2)
+        val = a_sum + 0.25 * np.einsum("ki,ki->k", s @ A_off, s) + b_sum - 0.5 * (s @ b)
+        j = int(np.argmin(val))
+        if float(val[j]) < best:
+            best = float(val[j])
+            best_bits = x[j].astype(np.int8).copy()
+    return best, best_bits, int(size)
 
 
 def exact(n, A, b, conflicts, chunk=8192):
