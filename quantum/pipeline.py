@@ -464,13 +464,6 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
     valid_mass = round(float(probs[feasible].sum()), 6)
     measured_energy = round(float((probs * ising).sum()), 6)
 
-    pool = np.where(feasible)[0]
-    if pool.size == 0:
-        pool = np.arange(1 << n)
-    rel = int(pool[np.lexsort((-probs[pool], total[pool]))[0]])
-    best_x = [int(b) for b in X[rel]]
-    best_cost = round(float(total[rel]), 6)
-
     top = np.argsort(probs)[::-1][:32]
     dist = [{
         "x": [int(b) for b in X[k]],
@@ -478,6 +471,13 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
         "cost": round(float(total[k]), 6),
         "feasible": bool(feasible[k]),
     } for k in top]
+
+    # El "after" es SIEMPRE un estado que el circuito produce de verdad (los mas
+    # probables), nunca uno post-seleccionado con probabilidad ~0. Si ninguno de
+    # los producidos es factible, se reporta el mejor producido y se ven sus conflictos.
+    best = _best_feasible(dist)
+    best_x = list(best["x"])
+    best_cost = round(float(best["cost"]), 6)
 
     # --- exact reference (skip for large n: 2^n enumeration is costly) ---
     if n <= 16:
