@@ -890,11 +890,40 @@ function wireChartInteractions() {
 // Result of a run on the backend selected in Qollab (QPU or simulator).
 function backendClass(q) {
   const mod = q.backend_module || '';
-  if (mod.includes('basic_provider')) return { label: 'built-in simulator · runs in your browser · free', color: COL.L1 };
-  if (mod.includes('aer')) return { label: 'local noise-model simulator · runs in your browser · free', color: COL.L1 };
-  if (mod.includes('braket')) return { label: 'AWS Braket local simulator · runs in your browser · free', color: COL.L1 };
-  if (mod.includes('ionq')) return { label: 'IonQ · remote simulator (free) or quantum computer (credits)', color: COL.L4 };
-  return { label: q.backend_type || 'backend', color: COL.muted };
+  const nm = (q.backend_name || '').toLowerCase();
+  if (mod.includes('basic_provider') || nm.includes('basic')) return { label: 'built-in simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('aer') || nm.includes('aer')) return { label: 'local noise-model simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('braket') || nm.includes('braket')) return { label: 'AWS Braket local simulator · runs in your browser · free', color: COL.L1 };
+  if (mod.includes('ionq') || nm.includes('ionq') || nm.includes('forte') || nm.includes('aria')) {
+    return { label: 'IonQ · remote simulator (free) or quantum computer (credits)', color: COL.L4 };
+  }
+  return { label: q.backend_type || q.backend_name || 'backend', color: COL.muted };
+}
+
+// Drawing of the QAOA circuit (SVG from Python, or a text fallback).
+let CIRCUIT_URL = null;
+
+export function renderCircuit(cd) {
+  const el = document.getElementById('circuit');
+  if (!el) return;
+  if (!cd) { el.innerHTML = ''; return; }
+  const info = cd.info || {};
+  const ops = Object.entries(info.ops || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k}×${v}`)
+    .join(' · ');
+  let body;
+  if (cd.svg) {
+    if (CIRCUIT_URL) URL.revokeObjectURL(CIRCUIT_URL);
+    CIRCUIT_URL = URL.createObjectURL(new Blob([cd.svg], { type: 'image/svg+xml' }));
+    body = `<img class="circuit-img" alt="QAOA circuit" src="${CIRCUIT_URL}" />`;
+  } else if (cd.text) {
+    body = `<pre class="circuit-text">${esc(cd.text)}</pre>`;
+  } else {
+    body = `<p class="note">Circuit drawing unavailable${cd.draw_error ? ` (${esc(cd.draw_error)})` : ''}.</p>`;
+  }
+  el.innerHTML = `<p class="note"><strong>${info.num_qubits} qubits</strong> · depth ${info.depth} · `
+    + `${info.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>${body}`;
 }
 
 export function renderBackend(q, model) {

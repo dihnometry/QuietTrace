@@ -184,6 +184,29 @@ def _layer_members(bits, nets):
     }
 
 
+def _counts_metrics(counts, prob, probs):
+    """TVD / validos / exito comparando la ideal (|psi|^2) con los conteos del backend."""
+    n = len(prob["nets"])
+    P = np.asarray(probs, dtype=float)
+    Q = np.zeros(1 << n, dtype=float)
+    total = sum(int(c) for c in counts.values()) or 1
+    for key, cnt in counts.items():
+        Q[_index_from_bits(_bits_from_key(key, n))] += int(cnt) / total
+    mask = _feasible_mask(n, prob["conflicts"])
+    out = {
+        "tvd": round(float(0.5 * np.sum(np.abs(P - Q))), 6),
+        "valid_ideal": round(float(P[mask].sum()), 6),
+        "valid_backend": round(float(Q[mask].sum()), 6),
+    }
+    if n <= 16:
+        optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
+                                                 prob["conflicts"], prob["M"])[1]]
+        opt = _index_from_bits(optimal)
+        out["success_ideal"] = round(float(P[opt]), 6)
+        out["success_backend"] = round(float(Q[opt]), 6)
+    return out
+
+
 def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
@@ -234,22 +257,7 @@ def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", in
     derived = _fields_from_counts(counts, prob, len(prob["nets"]))
 
     # comparison metrics: ideal (|psi|^2) vs backend (measured counts)
-    n = len(prob["nets"])
-    P = np.asarray(qa["probabilities"], dtype=float)
-    Q = np.zeros(1 << n, dtype=float)
-    tcounts = sum(counts.values()) or 1
-    for key, cnt in counts.items():
-        Q[_index_from_bits(_bits_from_key(key, n))] += cnt / tcounts
-    mask = _feasible_mask(n, prob["conflicts"])
-    derived["tvd"] = round(float(0.5 * np.sum(np.abs(P - Q))), 6)
-    derived["valid_ideal"] = round(float(P[mask].sum()), 6)
-    derived["valid_backend"] = round(float(Q[mask].sum()), 6)
-    if n <= 16:
-        optimal = [int(b) for b in M.solve_exact(prob["W"], prob["vias"], prob["lam_v"],
-                                                 prob["conflicts"], prob["M"])[1]]
-        opt = _index_from_bits(optimal)
-        derived["success_ideal"] = round(float(P[opt]), 6)
-        derived["success_backend"] = round(float(Q[opt]), 6)
+    derived.update(_counts_metrics(counts, prob, qa["probabilities"]))
 
     return {
         "counts": counts,
@@ -301,13 +309,84 @@ def _fields_from_counts(counts, prob, n):
     }
 
 
-def model_from_counts(counts, kind="1adc", wsource="geom"):
-    """Campos desde conteos, aceptando un objeto JS (Pyodide) o un dict."""
+def model_from_counts(counts, kind="1adc", order_str=None, wsource="geom"):
+    """Campos (distribucion, costes, metricas) desde conteos del backend.
+
+    `counts` puede ser un objeto JS (Pyodide) o un dict. Lo usa `main.js` tras
+    lanzar el job DESDE JavaScript (`backend.run`), que es la unica via que Qollab
+    permite para los backends remotos (IonQ): el POST sincrono desde Python esta
+    bloqueado en el sandbox.
+    """
     if hasattr(counts, "to_py"):  # Pyodide JsProxy
         counts = counts.to_py()
     counts = {str(k): int(v) for k, v in counts.items()}
-    prob = _problem(kind, None, wsource)
-    return _fields_from_counts(counts, prob, len(prob["nets"]))
+    prob = _problem(kind, order_str, wsource)
+    derived = _fields_from_counts(counts, prob, len(prob["nets"]))
+    ideal = _ideal_cached(kind, None, order_str, wsource)
+    derived.update(_counts_metrics(counts, prob, ideal["probs"]))
+    return derived
+
+
+def qaoa_circuit(kind="1adc", order_str=None, wsource="geom"):
+    """Circuito QAOA (angulos numericos) para dibujar y ejecutar desde JavaScript.
+
+    Devuelve:
+      - `gates`: lista de puertas serializada, para que `main.js` reconstruya el
+        circuito con Qiskit en JS y lo envie con `backend.run` (unica via valida
+        para IonQ en Qollab).
+      - `info`: resumen (qubits, profundidad, tamano, operaciones).
+      - `svg`: dibujo del circuito (matplotlib) listo para mostrar como imagen;
+        o `text` como respaldo si el drawer no esta disponible.
+    """
+    import io
+
+    prob = _problem(kind, order_str, wsource)
+    theta = _ideal_cached(kind, None, order_str, wsource)["theta"]
+    from . import qaoa as ref
+
+    circuit = ref.build_circuit(prob["J"], prob["h"], REPS, theta, init=None)
+
+    gates = []
+    for item in circuit.data:
+        op = item.operation
+        gate = {
+            "g": str(op.name),
+            "q": [circuit.find_bit(item.qubits[k]).index for k in range(len(item.qubits))],
+        }
+        if item.clbits:
+            gate["c"] = [circuit.find_bit(item.clbits[k]).index for k in range(len(item.clbits))]
+        params = list(getattr(op, "params", []) or [])
+        if params:
+            gate["p"] = [float(x) for x in params]
+        gates.append(gate)
+
+    out = {
+        "gates": gates,
+        "info": {
+            "num_qubits": int(circuit.num_qubits),
+            "num_clbits": int(circuit.num_clbits),
+            "depth": int(circuit.depth()),
+            "size": int(circuit.size()),
+            "ops": {str(k): int(v) for k, v in circuit.count_ops().items()},
+        },
+    }
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        from matplotlib import pyplot as plt
+        fig = circuit.draw("mpl", scale=0.7)
+        buf = io.StringIO()
+        fig.savefig(buf, format="svg", facecolor="white", bbox_inches="tight")
+        plt.close(fig)
+        out["svg"] = buf.getvalue()
+    except Exception as exc:  # noqa: BLE001
+        out["svg"] = None
+        out["draw_error"] = f"{type(exc).__name__}: {exc}"
+        try:
+            out["text"] = str(circuit.draw("text"))
+        except Exception:  # noqa: BLE001
+            out["text"] = None
+    return out
 
 
 _IDEAL = {}
@@ -321,7 +400,12 @@ def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
         prob = _problem(kind, order_str, wsource)
         init = _init_vector(init_deg, len(prob["nets"]))
         qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
-        _IDEAL[key] = {"prob": prob, "probs": np.asarray(qa["probabilities"], dtype=float)}
+        _IDEAL[key] = {
+            "prob": prob,
+            "probs": np.asarray(qa["probabilities"], dtype=float),
+            "theta": [float(t) for t in qa["theta"]],
+            "qa": qa,
+        }
     return _IDEAL[key]
 
 
@@ -441,16 +525,18 @@ def get_problem(kind="1adc", order_str=None, wsource="geom"):
 
 
 def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
-    prob = _problem(kind, order_str, wsource)
+    # Una sola optimización QAOA por (kind, init, order, wsource): reutiliza la caché
+    # que también usan qaoa_circuit/model_from_counts (evita correr QAOA dos veces).
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource)
+    prob = ideal["prob"]
+    qa = ideal["qa"]
     nets = prob["nets"]
     n = len(nets)
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
                                        prob["conflicts"], prob["M"])
 
     # --- QAOA ---
-    init = _init_vector(init_deg, n)
-    qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
-    probs = np.asarray(qa["probabilities"], dtype=float)
+    probs = np.asarray(ideal["probs"], dtype=float)
 
     X, total, ising, feasible = _vector_metrics(prob, n)
     valid_mass = round(float(probs[feasible].sum()), 6)

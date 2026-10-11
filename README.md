@@ -28,6 +28,8 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 - **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
+- **QAOA circuit:** the ansatz as sent to the backend (initial Hadamards, p cost layers of
+  RZZ/RZ, mixer RX layers, measurement), drawn with Qiskit's matplotlib drawer.
 - **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**.
 - **Weights:** switch between the **Geometric** heuristic and the **COMSOL 6.1** mutual
   capacitance (quasi-electrostatic proxy) — same QAOA, so you can compare how the layer
@@ -54,13 +56,16 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 
 ## Run on a QPU
 
-In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**, then sends
-**one** QAOA circuit to the chosen backend (Qollab enforces *one job per run* on IonQ) and
-renders the measured counts and their validity. The **QPU run** panel shows which backend ran,
-its type (local simulator / IonQ), the job id and the executed circuit — so it is clear that
-the circuit was sent. Simulators run in your browser or on IonQ's cloud and are **free**; only
-the IonQ quantum computers spend **credits**. A local preview has no backend, so that section
-stays empty.
+In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**; then `main.js`
+builds the QAOA circuit from a gate list that Python serialises (`quantum/pipeline.qaoa_circuit`)
+and submits it **from JavaScript** with `await backend.run(circuit, { shots })` — the only path
+Qollab allows for the remote backends. (A `backend.run` inside Python does a synchronous
+`requests` POST that the sandbox blocks with `Failed to fetch`, so IonQ fails there; local
+simulators work either way.) The counts return to Python (`model_from_counts`) for the metrics.
+Qollab enforces *one job per run* on IonQ. The **QPU run** panel shows which backend ran, its
+type (local simulator / IonQ), the job id and the executed circuit. Simulators run in your
+browser or on IonQ's cloud and are **free**; only the IonQ quantum computers spend **credits**.
+A local preview has no backend, so that section stays empty (the circuit drawing still shows).
 
 ## Structure
 

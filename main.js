@@ -5,12 +5,78 @@
 // circuit is sent and the charts use that backend's counts.
 
 import * as pipeline from 'quantum.pipeline'; // Pyodide in Qollab; shim locally
-import { render, renderBackend, routingPreview } from './engine.js';
+import { render, renderBackend, renderCircuit, routingPreview } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
 const setQpu = (html) => { const el = document.getElementById('qpu'); if (el) el.innerHTML = html; };
 const hasBackendNow = () => (typeof backend !== 'undefined') && !!backend;
+
+const SHOTS = 1024;
+
+function backendName() {
+  try {
+    const n = backend && backend.name;
+    if (n == null) return '';
+    return String(typeof n === 'function' ? n() : n);
+  } catch (e) { return ''; }
+}
+
+function safeJobId(job) {
+  try {
+    const jid = job && job.job_id ? job.job_id() : null;
+    return jid == null ? '' : String(jid);
+  } catch (e) { return ''; }
+}
+
+// Build the QAOA circuit in JS (Qiskit in the browser) from the gate list that
+// Python returned. Running the job from JS is REQUIRED on Qollab: the remote
+// (IonQ) backends cannot be reached from Python (the sandbox blocks the POST).
+async function buildCircuit(cd) {
+  const { QuantumCircuit } = await import('qiskit');
+  const info = cd.info || {};
+  const qc = QuantumCircuit(info.num_qubits, info.num_clbits);
+  for (const g of cd.gates || []) {
+    const q = g.q || []; const c = g.c || []; const p = g.p || [];
+    switch (g.g) {
+      case 'barrier': qc.barrier(); break;
+      case 'h': qc.h(q[0]); break;
+      case 'x': qc.x(q[0]); break;
+      case 'y': qc.y(q[0]); break;
+      case 'z': qc.z(q[0]); break;
+      case 'ry': qc.ry(p[0], q[0]); break;
+      case 'rx': qc.rx(p[0], q[0]); break;
+      case 'rz': qc.rz(p[0], q[0]); break;
+      case 'rzz': qc.rzz(p[0], q[0], q[1]); break;
+      case 'cx': qc.cx(q[0], q[1]); break;
+      case 'cz': qc.cz(q[0], q[1]); break;
+      case 'measure': qc.measure(q[0], c[0]); break;
+      default: break;   // ignore anything unexpected
+    }
+  }
+  return qc;
+}
+
+// Send the circuit to the selected backend and return its counts.
+async function runOnBackend(cd) {
+  const bname = backendName();
+  let qc = null;
+  try {
+    qc = await buildCircuit(cd);
+  } catch (eBuild) {
+    console.warn('JS circuit build failed; falling back to the Python run_backend path', eBuild);
+  }
+  if (qc) {
+    const job = await backend.run(qc, { shots: SHOTS });
+    const jobId = safeJobId(job);
+    const counts = (await job.result()).get_counts().toJs();
+    return { counts, job_id: jobId, backend_name: bname };
+  }
+  // Fallback (works on local simulators; IonQ still needs the JS path).
+  const q = (await pipeline.run_backend.callPromising(
+    backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
+  return { counts: q.counts, job_id: q.job_id || '', backend_name: q.backend_name || bname };
+}
 
 const clamp = (v, lo, hi, dflt) => {
   const x = Number(v);
@@ -88,12 +154,22 @@ async function runPipeline() {
 
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW)).toJs();
 
+  // QAOA circuit diagram (independent of the backend): Python draws it, JS shows it.
+  let cd = null;
+  try {
+    setStatus('Drawing the QAOA circuit…');
+    cd = (await pipeline.qaoa_circuit.callPromising(currentKind, currentOrder(), currentW)).toJs();
+    renderCircuit(cd);
+  } catch (eDraw) {
+    console.error('circuit diagram failed:', eDraw);
+  }
+
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
-      const q = (await pipeline.run_backend.callPromising(
-        backend, 1024, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
-      const over = q.derived;
+      const res = await runOnBackend(cd);
+      const over = (await pipeline.model_from_counts.callPromising(
+        res.counts, currentKind, currentOrder(), currentW)).toJs();
       model.ideal_distribution = model.distribution;
       model.distribution = over.distribution;
       model.distribution_source = over.distribution_source;
@@ -107,14 +183,16 @@ async function runPipeline() {
       model.valid_backend = over.valid_backend;
       model.measured_energy = over.measured_energy;
       render(model);
-      renderBackend(q, model);
-      setStatus(`Done · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job) · charts from that backend.`);
+      renderBackend({ counts: res.counts, shots: SHOTS, backend_name: res.backend_name,
+        job_id: res.job_id, circuit: cd ? cd.info : null }, model);
+      setStatus(`Done · job ran on ${res.backend_name || 'the backend'} (${SHOTS} shots, 1 job) · charts from that backend.`);
     } catch (errJob) {
       console.error(errJob);
       render(model);
       setQpu(`<p class="qpu-line" style="color:#ff6b6b">QPU run did not complete: ${String(errJob)}</p>
-        <p class="note">The local QAOA result above is unaffected. If you picked IonQ hardware,
-        remember it must be online and Qollab allows one job per run.</p>`);
+        <p class="note">The local QAOA result above is unaffected. The job is sent from JavaScript
+        (required by Qollab for remote backends); if you picked IonQ, it must be online and
+        Qollab allows one job per run.</p>`);
       setStatus(`Local QAOA ready · QPU run did not complete: ${errJob}`);
     }
   } else {

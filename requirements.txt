@@ -1,5 +1,7 @@
 # QuietTracE — dependencias Python
 #
-# Qiskit se fija aquí (aunque Qollab lo instala siempre) porque el pipeline lo
-# necesita. NumPy y SciPy vienen con Pyodide: se cargan al importar y NO se listan.
-qiskit>=2.5.2,<3.0.0
+# Qiskit con el extra de visualización: el drawer de matplotlib (`circuit.draw("mpl")`)
+# necesita `pylatexenc`, que viene con `qiskit[visualization]`. Es lo mismo que la opción
+# "Qiskit Visualizations" de la lista Libraries de Qollab.
+# NumPy, SciPy y Matplotlib vienen con Pyodide: se cargan al importar y NO se listan.
+qiskit[visualization]>=2.5.2,<3.0.0

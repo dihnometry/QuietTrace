@@ -57,6 +57,19 @@
 
 <section class="panel">
   <div class="toolbar">
+    <span class="view-label">QAOA circuit (ansatz, numeric angles)</span>
+  </div>
+  <div id="circuit"></div>
+  <p class="note">
+    The circuit sent to the backend: initial Hadamards, then p cost layers (RZZ/RZ) and
+    mixer layers (RX), and measurement. Drawn with Qiskit's matplotlib drawer; on Qollab
+    the job itself is submitted from JavaScript (<code>backend.run</code>), which is the
+    only path that works for the remote IonQ backends.
+  </p>
+</section>
+
+<section class="panel">
+  <div class="toolbar">
     <span class="view-label">QPU run (backend selected in Qollab)</span>
   </div>
   <div id="qpu"></div>

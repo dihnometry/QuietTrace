@@ -181,18 +181,33 @@ Si defines `main()` que cumpla las reglas, el runtime lo **llama automáticament
   luego `index.js`/`index.mjs`. Otros tipos no se importan.
 - `main.js` puede importar Python (propio o instalado) por **nombre de módulo punteado**:
   ```js
-  import * as bell from 'quantum.bell';        // tu quantum/bell.py
-  import { QuantumCircuit } from 'qiskit';     // paquete Python instalado
-  const counts = (await bell.run_bell.callPromising(backend, 1000)).toJs();
+  import * as qt from 'quantum.pipeline';      // tu quantum/pipeline.py
+  import { QuantumCircuit } from 'qiskit';     // Qiskit en JS
+
+  // Python construye/serializa el circuito; JS lo reconstruye y LANZA el job aquí
+  const cd = (await qt.qaoa_circuit.callPromising('1adc', null, 'geom')).toJs();
+  const qc = QuantumCircuit(cd.info.num_qubits, cd.info.num_clbits);
+  for (const g of cd.gates) { /* replay: h/rzz/rz/rx/measure ... */ }
+  const job = await backend.run(qc, { shots: 1024 });
+  const counts = (await job.result()).get_counts().toJs();
+  const model = (await qt.model_from_counts.callPromising(counts, '1adc', null, 'geom')).toJs();
   ```
-  Usa `.callPromising`, o `.callPromisingKwargs` para kwargs. En IonQ, una llamada plana
-  `bell.run_bell(backend, 1000)` aborta con `ConnectionError`.
+  Usa `.callPromising`, o `.callPromisingKwargs` para kwargs.
   Usa **imports con nombre** o `import * as`; un import por defecto da `undefined`.
   Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`.
   **`null`/`undefined` de JS llegan a Python como `JsNull`/`JsUndefined` (un `JsProxy`), no como
   `None`.** No los compares con `is None`: normalízalos (p. ej. un helper que mapee esos nombres
   de tipo a `None`) antes de usarlos, o el argumento revienta con
   `float() argument must be ... not 'JsNull'`.
+  **El job cuántico se lanza desde JavaScript**, no desde Python:
+  `const job = await backend.run(circuit, { shots }); const counts = (await job.result()).get_counts().toJs();`
+  Dentro de Python, `backend.run(...)` hace un POST síncrono con `requests` que el sandbox
+  bloquea (`Failed to fetch`): los simuladores locales funcionan (no salen a la red) pero los
+  **backends remotos (IonQ) fallan**. Por eso el circuito se construye en Python, se serializa
+  (`quantum/pipeline.qaoa_circuit`), se reconstruye en JS con Qiskit y se envía allí; los conteos
+  vuelven a Python (`quantum/pipeline.model_from_counts`) para calcular las métricas.
+  El dibujo del circuito (`circuit.draw("mpl")`) necesita el extra `qiskit[visualization]`
+  (aporta `pylatexenc`), que va en `requirements.txt`.
 
 ### 2.7. Archivos de datos (crítico)
 

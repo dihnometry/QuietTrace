@@ -4,9 +4,12 @@ Serves the repo statically AND runs the pipeline in Python, so the real UI
 (`main.js` + `engine.js`) works locally without Qollab/Pyodide.
 
 Endpoints:
-  GET /api/model?kind=1adc|2adc&order=<csv>&init=<deg>
+  GET /api/model?kind=1adc|2adc&order=<csv>&init=<deg>&w=geom|comsol
+  GET /api/problem?kind=...&order=...&w=...
+  GET /api/circuit?kind=...&order=...&w=...        (QAOA circuit: gates + SVG drawing)
+  GET /api/counts?kind=...&order=...&w=...&counts=<json>  (metrics from counts)
   GET /api/resample?shots=<n>&kind=...&order=...&init=...
-  GET /api/run?shots=<n>&kind=...&order=...   (local BasicSimulator, optional)
+  GET /api/run?shots=<n>&kind=...&order=...&w=...   (local BasicSimulator, fallback)
 
 Run with a Python that has qiskit/numpy/scipy:
   PYTHON=/tmp/opencode/qtvenv/bin/python ./scripts/dev.sh
@@ -73,6 +76,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, pipeline.get_problem(kind, order, wsource))
             if url.path == "/api/random":
                 return self._send(200, pipeline.random_order(kind))
+            if url.path == "/api/circuit":
+                return self._send(200, pipeline.qaoa_circuit(kind, order, wsource))
+            if url.path == "/api/counts":
+                counts = json.loads(_opt(q, "counts") or "{}")
+                return self._send(200, pipeline.model_from_counts(counts, kind, order, wsource))
             if url.path == "/api/resample":
                 shots = int(_opt(q, "shots") or 1024)
                 return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order, wsource))
