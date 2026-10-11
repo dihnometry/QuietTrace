@@ -12,11 +12,10 @@ const setStatus = (t) => { if (status) status.textContent = t; };
 const setQpu = (html) => { const el = document.getElementById('qpu'); if (el) el.innerHTML = html; };
 const hasBackendNow = () => (typeof backend !== 'undefined') && !!backend;
 
-// In the Qollab export the tuning knobs are LOCKED (depth 5, conflict ×5, COMSOL
-// weights); the local dev preview (dev/app-local.html) sets window.__QT_DEV__ to
-// unlock them. The locked values follow the notebook sweeps (sections 9-10).
+// In the Qollab export the tuning knobs are LOCKED: weights COMSOL, and depth p /
+// conflict weight per problem (from PRESETS). The local dev preview
+// (dev/app-local.html) sets window.__QT_DEV__ to unlock them.
 const DEV = !!window.__QT_DEV__;
-const LOCKED = { wsource: 'comsol', reps: 5, cmult: 5 };
 // Team name shown in the console banner (edit this if it should read differently).
 const TEAM = 'QuietTracE';
 
@@ -29,7 +28,7 @@ const clamp = (v, lo, hi, dflt) => {
 
 let currentKind = '1adc';
 let currentModel = 'full';   // 'full' (n qubits) | 'reduced' (k qubits, componentes)
-let currentW = DEV ? 'geom' : LOCKED.wsource;   // weight source: 'geom' | 'comsol' (locked in the export)
+let currentW = 'comsol';   // weight source: 'geom' | 'comsol' (COMSOL by default)
 let MODEL = null;
 
 async function refreshProblem() {
@@ -77,8 +76,9 @@ const currentOrder = () => {
 };
 
 const cmultEl = () => document.getElementById('cmult');
+const presetFor = (kind) => PRESETS[kind] || PRESETS['1adc'];
 const currentC = () => {
-  if (!DEV) return LOCKED.cmult;                 // locked in the export
+  if (!DEV) return presetFor(currentKind).cmult;  // locked in the export (per problem)
   const el = cmultEl();
   const v = el ? Number(el.value) : 1;
   return Number.isFinite(v) && v > 0 ? v : 1;   // conflict-penalty multiplier
@@ -86,7 +86,7 @@ const currentC = () => {
 
 const repsEl = () => document.getElementById('reps');
 const currentP = () => {
-  if (!DEV) return LOCKED.reps;                  // locked in the export (depth 5)
+  if (!DEV) return presetFor(currentKind).reps;   // locked in the export (per problem)
   const el = repsEl();
   const v = el ? Number(el.value) : 3;
   return Number.isInteger(v) && v >= 1 ? v : 3;  // QAOA depth (reps)
@@ -96,7 +96,7 @@ const currentP = () => {
 // 25q is experimental: reps=1 and a capped COBYLA (dense 2^25 statevector).
 const PRESETS = {
   '1adc': { reps: 3, cmult: 1 },
-  '2adc': { reps: 3, cmult: 5 },
+  '2adc': { reps: 5, cmult: 5 },
   '25': { reps: 1, cmult: 5 },
   'syn9': { reps: 3, cmult: 5, model: 'reduced' },
   'syn18': { reps: 3, cmult: 5, model: 'reduced' },
