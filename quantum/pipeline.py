@@ -266,6 +266,7 @@ def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", in
     # its own pipeline converts to native gates with valid angles, whereas
     # transpiling for IonQ can produce gates with non-positive times.
     is_ionq = type(backend).__module__.startswith("qiskit_ionq")
+    t0 = time.perf_counter()
     if is_ionq:
         tcirc = circuit
     else:
@@ -273,6 +274,7 @@ def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", in
 
     job = backend.run(tcirc, shots=shots)
     counts = job.result().get_counts()
+    exec_ms = (time.perf_counter() - t0) * 1000.0
 
     name = getattr(backend, "name", None)
     if callable(name):
@@ -308,6 +310,8 @@ def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", in
         "backend_type": type(backend).__name__,
         "is_ionq": bool(is_ionq),
         "job_id": job_id,
+        "opt_ms": round(float(ideal.get("qaoa_ms") or 0.0), 2),
+        "exec_ms": round(exec_ms, 2),
         "circuit": {
             "num_qubits": int(tcirc.num_qubits),
             "depth": int(tcirc.depth()),
@@ -361,12 +365,15 @@ def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom", cm
         # n grande (25q): cada evaluacion del statevector denso cuesta ~17s, asi que
         # se recorta el numero de iteraciones de COBYLA.
         maxiter = MAXITER if len(prob["nets"]) <= 18 else 12
+        t0 = time.perf_counter()
         qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=int(reps), maxiter=maxiter, init=init)
+        qaoa_ms = (time.perf_counter() - t0) * 1000.0
         _IDEAL[key] = {
             "prob": prob,
             "probs": np.asarray(qa["probabilities"], dtype=float),
             "theta": [float(t) for t in qa["theta"]],
             "qa": qa,
+            "qaoa_ms": qaoa_ms,
         }
     return _IDEAL[key]
 
@@ -489,12 +496,14 @@ def get_problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
     }
 
 
-def _classical_benchmark(prob, budget=200, trials=5, seed=12345, exact_max=18):
+def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
     """Compara QAOA contra busqueda clasica (greedy local + simulated annealing).
 
     Mismo C(x) penalizado; los clasicos van restringidos a asignaciones factibles
-    (flips por componente). Devuelve el optimo exacto (si n <= exact_max) y, por
-    metodo, el mejor/mediana de `trials` corridas con `budget` evaluaciones de C(x).
+    (flips por componente). El optimo exacto se obtiene enumerando SOLO las 2**c
+    coloraciones factibles (barato incluso a 25q). Devuelve, por metodo, el
+    mejor/mediana de `trials` corridas con `budget` evaluaciones de C(x), el gap
+    absoluto y el gap relativo (%) respecto al optimo.
     """
     from . import classical as C
 
@@ -508,14 +517,18 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345, exact_max=18):
     b = float(prob["lam_v"]) * np.asarray(prob["vias"], dtype=float)
 
     exact_cost = None
-    if n <= exact_max:
-        try:
-            _, _, exact_cost, _ = C.exact(n, A, b, conflicts)
-        except Exception:  # noqa: BLE001
-            exact_cost = None
+    try:
+        exact_cost, _n_opt, _n_feas = C.feasible_optimum(A, b, conflicts)
+    except Exception:  # noqa: BLE001
+        exact_cost = None
 
     def gap_of(x):
         return round(float(x - exact_cost), 6) if exact_cost is not None else None
+
+    def gap_pct_of(x):
+        if exact_cost is None or abs(exact_cost) < 1e-12:
+            return None
+        return round(float(100.0 * (x - exact_cost) / abs(exact_cost)), 4)
 
     def succ_of(vals):
         if exact_cost is None:
@@ -538,10 +551,12 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345, exact_max=18):
             "id": mid, "name": name,
             "best": round(min(bests), 6),
             "median": round(float(np.median(bests)), 6),
+            "worst": round(max(bests), 6),
             "evals": int(evals),
             "time_ms": round(float(np.median(times)), 2),
             "success": succ_of(bests),
             "gap": gap_of(min(bests)),
+            "gap_pct": gap_pct_of(min(bests)),
         })
     return {
         "budget": int(budget), "trials": int(trials),
@@ -617,14 +632,19 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
 
     # --- classical benchmark (greedy local + simulated annealing vs QAOA) ---
     bench = _classical_benchmark(prob)
+    _exact = bench["exact"]
     bench["methods"].append({
         "id": "qaoa", "name": "QAOA (best produced)",
-        "best": best_cost, "median": best_cost,
-        "evals": len(hist), "time_ms": None,
-        "success": (None if bench["exact"] is None
-                    else (1.0 if abs(best_cost - bench["exact"]) < 1e-8 else 0.0)),
-        "gap": (None if bench["exact"] is None
-                else round(float(best_cost - bench["exact"]), 6)),
+        "best": best_cost, "median": best_cost, "worst": best_cost,
+        "evals": len(hist),
+        "time_ms": round(float(ideal.get("qaoa_ms") or 0.0), 2),
+        "time_opt_ms": round(float(ideal.get("qaoa_ms") or 0.0), 2),
+        "time_exec_ms": None,   # lo rellena main.js tras ejecutar el circuito
+        "success": (None if _exact is None
+                    else (1.0 if abs(best_cost - _exact) < 1e-8 else 0.0)),
+        "gap": (None if _exact is None else round(float(best_cost - _exact), 6)),
+        "gap_pct": (None if (_exact is None or abs(_exact) < 1e-12)
+                    else round(float(100.0 * (best_cost - _exact) / abs(_exact)), 4)),
     })
 
     return {

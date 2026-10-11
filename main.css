@@ -336,11 +336,12 @@ body {
 .qpu-line { margin: 0 0 0.5rem; font-size: 1rem; color: var(--fg); }
 
 /* tabla del benchmark clasico */
-.bench { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.9rem; }
-.bench th, .bench td { text-align: right; padding: 4px 8px; border-bottom: 1px solid var(--edge); }
+.bench { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.82rem; }
+.bench th, .bench td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
 .bench th:first-child, .bench td:first-child { text-align: left; }
-.bench th { color: var(--muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.bench th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
 .bench tr.qaoa td { color: var(--accent); font-weight: 700; }
+.bench-sub { display: block; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
 
 /* boton de expandir en cada grafica */
 .chart h3 { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }

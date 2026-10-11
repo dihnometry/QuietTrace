@@ -147,6 +147,14 @@ async function runPipeline() {
       model.valid_ideal = over.valid_ideal;
       model.valid_backend = over.valid_backend;
       model.measured_energy = over.measured_energy;
+      // QAOA timing: local optimization + circuit execution on the backend
+      const qrow = (model.benchmark && Array.isArray(model.benchmark.methods))
+        ? model.benchmark.methods.find((m) => m.id === 'qaoa') : null;
+      if (qrow) {
+        if (q.opt_ms != null) qrow.time_opt_ms = q.opt_ms;
+        qrow.time_exec_ms = (q.exec_ms != null) ? q.exec_ms : null;
+        qrow.time_ms = (qrow.time_opt_ms || 0) + (qrow.time_exec_ms || 0);
+      }
       render(model);
       renderBackend(q, model);
       setStatus(`Done · job ran on ${q.backend_name || 'the backend'} (${q.shots} shots, 1 job) · charts from that backend.`);

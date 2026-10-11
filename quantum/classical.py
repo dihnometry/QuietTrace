@@ -155,6 +155,33 @@ def simulated_annealing(A, b, conflicts, rng, budget, steps_per_run=150):
     return float(best), best_bits, evals
 
 
+def feasible_optimum(A, b, conflicts):
+    """Optimo exacto sobre las asignaciones FACTIBLES.
+
+    Mucho mas barato que enumerar 2**n: el grafo de conflictos es bipartito con
+    `c` componentes conexas, y las unicas asignaciones sin conflicto son las
+    2**c coloraciones (flip de cada componente). Devuelve (opt, n_optimos,
+    n_factibles). A 25q c=2 -> solo 4 candidatas.
+    """
+    n = len(b)
+    groups = components(n, conflicts)
+    base = feasible_coloring(n, conflicts)
+    best = np.inf
+    n_opt = 0
+    for mask in range(1 << len(groups)):
+        x = base.copy()
+        for bit, g in enumerate(groups):
+            if (mask >> bit) & 1:
+                x[g] ^= 1
+        c = cost(x, A, b)
+        if c < best - 1e-9:
+            best = c
+            n_opt = 1
+        elif abs(c - best) <= 1e-9:
+            n_opt += 1
+    return float(best), int(n_opt), int(1 << len(groups))
+
+
 def exact(n, A, b, conflicts, chunk=8192):
     """Optimo exacto por enumeracion en trozos.
 

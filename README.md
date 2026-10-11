@@ -51,8 +51,13 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
   the exact reference is skipped: 2^18 enumeration is costly.)
 - **Charts:** *Cost breakdown*, *Circuit distribution* (from **running the optimized circuit**),
   *QAOA convergence* (**during optimization**, ⟨H_C⟩ per iteration), *Possible configurations*
-  (log/linear toggle), *Classical benchmark* (QAOA vs greedy local search + simulated annealing
-  on the same penalized cost) and *Coupling matrix*.
+  (log/linear toggle), *Classical benchmark* and *Coupling matrix*.
+- **Classical benchmark** compares **QAOA** vs **greedy local search** and **simulated
+  annealing** on the same penalized cost, against the **exact optimum** (found instantly by
+  enumerating only the feasible 2^components colorings). Columns: best, median, **gap**,
+  **gap %** (how close to the optimum), evaluations, time and success. The **QAOA time = local
+  optimization + circuit execution** on the backend ("opt + exec"); the classical time is their
+  own run. Blank cells ("—") mean the metric does not apply.
 - **Solution evolution** shows the most probable state **at each iteration of the local
   optimization** (not the final circuit's output).
 - **QAOA convergence is the ideal optimization trace (local simulation)**, not the backend

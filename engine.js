@@ -457,20 +457,34 @@ function combosCard(scale) {
 }
 
 function classicalBenchmark(bench) {
+  const secs = (ms) => `${fmt(ms / 1000, 2)} s`;
   const rows = (bench.methods || []).map((m) => {
-    const gap = m.gap == null ? '—' : fmt(m.gap, 3);
-    const succ = m.success == null ? '—' : `${Math.round(m.success * 100)}%`;
-    const time = m.time_ms == null ? '—' : `${fmt(m.time_ms, 1)} ms`;
+    const gap = (m.gap == null) ? '—' : fmt(m.gap, 4);
+    const gapPct = (m.gap_pct == null) ? '—' : `${fmt(m.gap_pct, 3)}%`;
+    const succ = (m.success == null) ? '—' : `${Math.round(m.success * 100)}%`;
+    const median = (m.median == null) ? '—' : fmt(m.median, 4);
+    let time = '—';
+    if (m.time_opt_ms != null && m.time_exec_ms != null) {
+      time = `${secs(m.time_opt_ms + m.time_exec_ms)}`
+        + `<span class="bench-sub">opt ${secs(m.time_opt_ms)} + exec ${secs(m.time_exec_ms)}</span>`;
+    } else if (m.time_opt_ms != null) {
+      time = `${secs(m.time_opt_ms)}<span class="bench-sub">optimization</span>`;
+    } else if (m.time_ms != null) {
+      time = secs(m.time_ms);
+    }
     const cls = m.id === 'qaoa' ? ' class="qaoa"' : '';
-    return `<tr${cls}><td>${esc(m.name)}</td><td>${fmt(m.best, 4)}</td><td>${gap}</td>`
-      + `<td>${m.evals == null ? '—' : m.evals}</td><td>${time}</td><td>${succ}</td></tr>`;
+    return `<tr${cls}><td>${esc(m.name)}</td><td>${fmt(m.best, 4)}</td><td>${median}</td>`
+      + `<td>${gap}</td><td>${gapPct}</td><td>${m.evals == null ? '—' : m.evals}</td>`
+      + `<td>${time}</td><td>${succ}</td></tr>`;
   }).join('');
   const exact = bench.exact == null ? '—' : fmt(bench.exact, 4);
   const inner = `<p class="note">Exact optimum <strong>${exact}</strong> · ${bench.budget} cost `
     + `evaluations × ${bench.trials} trials. Classical search is restricted to feasible assignments; `
-    + `QAOA is unconstrained (it may emit conflicts).</p>`
-    + `<table class="bench"><thead><tr><th>Method</th><th>Best cost</th><th>Gap</th>`
-    + `<th>Evals</th><th>Time</th><th>Success</th></tr></thead><tbody>${rows}</tbody></table>`;
+    + `QAOA is unconstrained (it may emit conflicts). <strong>QAOA time = local optimization + circuit `
+    + `execution</strong> on the backend (shown as "opt + exec"). Gap = best − exact; Gap % is relative.</p>`
+    + `<table class="bench"><thead><tr><th>Method</th><th>Best cost</th><th>Median</th>`
+    + `<th>Gap</th><th>Gap %</th><th>Evals</th><th>Time</th><th>Success</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table>`;
   return chartCard('Classical benchmark · QAOA vs classical search', inner);
 }
 
