@@ -58,32 +58,17 @@ function buildCircuit(cd) {
 }
 
 // Send the circuit to the selected backend and return its counts.
+// The job MUST be submitted from JavaScript on Qollab (documented path); there is
+// no Python fallback: `backend.run` inside Python is not the supported route here.
 async function runOnBackend(cd) {
   const bname = backendName();
-  let qc = null;
-  let buildErr = null;
-  try {
-    qc = buildCircuit(cd);
-  } catch (eBuild) {
-    buildErr = eBuild;
-    console.error('JS circuit build failed:', eBuild);
-  }
-  if (qc) {
-    console.log('QuietTracE: submitting the QAOA circuit from JS to', bname || 'the backend');
-    const job = await backend.run(qc, { shots: SHOTS });
-    const jobId = safeJobId(job);
-    const counts = (await job.result()).get_counts().toJs();
-    return { counts, job_id: jobId, backend_name: bname };
-  }
-  // Fallback: run from Python. Works on local simulators; IonQ still needs JS.
-  console.warn('QuietTracE: JS circuit build failed, falling back to Python run_backend');
-  try {
-    const q = (await pipeline.run_backend.callPromising(
-      backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
-    return { counts: q.counts, job_id: q.job_id || '', backend_name: q.backend_name || bname };
-  } catch (eRun) {
-    throw new Error(`JS circuit build failed (${buildErr}); the Python fallback also failed (${eRun})`);
-  }
+  if (!cd) throw new Error('Could not serialize the QAOA circuit from Python (qaoa_circuit).');
+  const qc = buildCircuit(cd);   // throws with the real reason if the JS build fails
+  console.log('QuietTracE: submitting the QAOA circuit from JS to', bname || 'the backend');
+  const job = await backend.run(qc, { shots: SHOTS });
+  const jobId = safeJobId(job);
+  const counts = (await job.result()).get_counts().toJs();
+  return { counts, job_id: jobId, backend_name: bname };
 }
 
 const clamp = (v, lo, hi, dflt) => {
