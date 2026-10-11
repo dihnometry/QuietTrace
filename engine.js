@@ -497,7 +497,7 @@ function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
     if (grouped) {
       const bw = slot * 0.38;
       bar(x0 + slot * 0.12, bw, r.ideal, COL.muted, i);
-      bar(x0 + slot * 0.5, bw, r.backend, COL.L1, i);
+      bar(x0 + slot * 0.5, bw, r.backend, r.feasible ? COL.L1 : COL.conflict, i);
     } else {
       bar(x0 + slot * 0.16, slot * 0.68, r.backend || r.ideal, r.feasible ? COL.L1 : COL.conflict, i);
     }
@@ -509,8 +509,10 @@ function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
   if (grouped) {
     s += `<rect x="${pad.l}" y="${ly}" width="16" height="10" rx="3" fill="${COL.muted}"/>`;
     s += `<text x="${pad.l + 22}" y="${ly + 10}" font-size="13" fill="${COL.muted}">ideal</text>`;
-    s += `<rect x="${pad.l + 92}" y="${ly}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
-    s += `<text x="${pad.l + 114}" y="${ly + 10}" font-size="13" fill="${COL.muted}">backend</text>`;
+    s += `<rect x="${pad.l + 96}" y="${ly}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
+    s += `<text x="${pad.l + 118}" y="${ly + 10}" font-size="13" fill="${COL.muted}">valid</text>`;
+    s += `<rect x="${pad.l + 196}" y="${ly}" width="16" height="10" rx="3" fill="${COL.conflict}"/>`;
+    s += `<text x="${pad.l + 218}" y="${ly + 10}" font-size="13" fill="${COL.muted}">conflict</text>`;
   } else {
     s += `<rect x="${pad.l}" y="${ly}" width="16" height="10" rx="3" fill="${COL.L1}"/>`;
     s += `<text x="${pad.l + 22}" y="${ly + 10}" font-size="13" fill="${COL.muted}">valid</text>`;

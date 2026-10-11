@@ -42,7 +42,8 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
   result.
 - Each chart has an **expand (⤢)** button that opens it larger in a modal.
 - **When a backend exists**, the local view is not painted until the job returns. Then the
-  charts use that backend's counts: *Circuit distribution* shows **ideal vs backend**, and
+  charts use that backend's counts: *Circuit distribution* shows **ideal vs backend** (grey =
+  ideal, green = valid backend, red = conflict backend), and
   *Cost breakdown* (after) + the after-board come from the backend. The optimization trace
   (*QAOA convergence*, *evolution*) stays local.
 - **Noise shows up in:** the *ideal vs backend* distribution, the **Model distance (TVD)**,
