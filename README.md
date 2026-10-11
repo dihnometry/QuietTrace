@@ -54,16 +54,15 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 
 ## Run on a QPU
 
-In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**; then `main.js`
-builds the QAOA circuit from a gate list that Python serialises (`quantum/pipeline.qaoa_circuit`)
-and submits it **from JavaScript** with `await backend.run(circuit, { shots })` — the only path
-Qollab allows for the remote backends. (A `backend.run` inside Python does a synchronous
-`requests` POST that the sandbox blocks with `Failed to fetch`, so IonQ fails there; local
-simulators work either way.) The counts return to Python (`model_from_counts`) for the metrics.
-Qollab enforces *one job per run* on IonQ. The **QPU run** panel shows which backend ran, its
-type (local simulator / IonQ), the job id and the executed circuit. Simulators run in your
-browser or on IonQ's cloud and are **free**; only the IonQ quantum computers spend **credits**.
-A local preview has no backend, so that section stays empty.
+In Qollab, pick a backend in **Select QPU**. The pipeline optimizes **locally**, then submits
+**one** QAOA circuit with `backend.run` inside Python — the `backend` Qollab injects is the real
+provider object, and Qollab does not intercept `run()`. `main.js` ends with
+`await new Promise(() => {})` to **keep the run alive**: Qollab tears down the runtime (and its
+authenticated `backend`) as soon as the top-level script finishes, so a job sent later — from the
+▶ Run button — would run *outside* the run and fail. Press **Stop** to end the run. Qollab enforces
+*one job per run* on IonQ and draws the submitted circuit in its own **Circuit** panel. Simulators
+run in your browser or on IonQ's cloud and are **free**; only the IonQ quantum computers spend
+**credits**. A local preview has no backend, so the QPU section stays empty.
 
 ## Structure
 

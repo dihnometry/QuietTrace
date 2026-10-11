@@ -182,32 +182,29 @@ Si defines `main()` que cumpla las reglas, el runtime lo **llama automáticament
 - `main.js` puede importar Python (propio o instalado) por **nombre de módulo punteado**:
   ```js
   import * as qt from 'quantum.pipeline';      // tu quantum/pipeline.py
-  import { QuantumCircuit } from 'qiskit';     // Qiskit en JS
 
-  // Python construye/serializa el circuito; JS lo reconstruye y LANZA el job aquí
-  const cd = (await qt.qaoa_circuit.callPromising('1adc', null, 'geom')).toJs();
-  const qc = QuantumCircuit(cd.info.num_qubits, cd.info.num_clbits);
-  for (const g of cd.gates) { /* replay: h/rzz/rz/rx/measure ... */ }
-  const job = await backend.run(qc, { shots: 1024 });
-  const counts = (await job.result()).get_counts().toJs();
-  const model = (await qt.model_from_counts.callPromising(counts, '1adc', null, 'geom')).toJs();
+  // Python corre el circuito con el `backend` real que Qollab inyecta
+  const q = (await qt.run_backend.callPromising(backend, 1024, 3, 150, '1adc', null, null, 'geom')).toJs();
+  // ... y al final del módulo, mantén la ejecución viva (ver abajo):
+  await new Promise(() => {});
   ```
   Usa `.callPromising`, o `.callPromisingKwargs` para kwargs.
   Usa **imports con nombre** o `import * as`; un import por defecto da `undefined`.
-  Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`.
+  Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`
+  (incluidos `numpy`/`scipy`, aunque vengan con Pyodide).
   **`null`/`undefined` de JS llegan a Python como `JsNull`/`JsUndefined` (un `JsProxy`), no como
   `None`.** No los compares con `is None`: normalízalos (p. ej. un helper que mapee esos nombres
   de tipo a `None`) antes de usarlos, o el argumento revienta con
   `float() argument must be ... not 'JsNull'`.
-  **El job cuántico se lanza desde JavaScript**, no desde Python:
-  `const job = await backend.run(circuit, { shots }); const counts = (await job.result()).get_counts().toJs();`
-  Dentro de Python, `backend.run(...)` hace un POST síncrono con `requests` que el sandbox
-  bloquea (`Failed to fetch`): los simuladores locales funcionan (no salen a la red) pero los
-  **backends remotos (IonQ) fallan**. Por eso el circuito se construye en Python, se serializa
-  (`quantum/pipeline.qaoa_circuit`), se reconstruye en JS con Qiskit (`import { QuantumCircuit }
-  from 'qiskit'`) y se envía allí; los conteos vuelven a Python
-  (`quantum/pipeline.model_from_counts`) para calcular las métricas. Qollab dibuja el circuito
-  por su cuenta, así que **no** hace falta dibujarlo en la UI.
+  **Mantén la ejecución viva**: termina `main.js` con `await new Promise(() => {})`. Qollab
+  desmonta el runtime —y su `backend` ya autenticado— en cuanto el script de nivel superior
+  acaba; un job enviado después (p. ej. al pulsar ▶ Run) queda **fuera de la ejecución** y falla
+  (`Failed to fetch`, `401`, o "la ejecución acaba antes de ejecutar ningún job"). Con la promesa
+  colgada, Python y `backend` siguen disponibles hasta que el usuario pulse **Stop**. Es lo que
+  hace el proyecto de referencia `Optogenetic Quantum Brain`.
+  `backend.run(...)` **desde Python** es correcto: `backend` es el objeto real del proveedor y
+  Qollab no intercepta `run()`. Qollab dibuja el circuito por su cuenta (panel *Circuit* de las
+  runs IonQ), así que **no** hay que dibujarlo en la UI.
 
 ### 2.7. Archivos de datos (crítico)
 

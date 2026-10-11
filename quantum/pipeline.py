@@ -309,64 +309,6 @@ def _fields_from_counts(counts, prob, n):
     }
 
 
-def model_from_counts(counts, kind="1adc", order_str=None, wsource="geom"):
-    """Campos (distribucion, costes, metricas) desde conteos del backend.
-
-    `counts` puede ser un objeto JS (Pyodide) o un dict. Lo usa `main.js` tras
-    lanzar el job DESDE JavaScript (`backend.run`), que es la unica via que Qollab
-    permite para los backends remotos (IonQ): el POST sincrono desde Python esta
-    bloqueado en el sandbox.
-    """
-    if hasattr(counts, "to_py"):  # Pyodide JsProxy
-        counts = counts.to_py()
-    counts = {str(k): int(v) for k, v in counts.items()}
-    prob = _problem(kind, order_str, wsource)
-    derived = _fields_from_counts(counts, prob, len(prob["nets"]))
-    ideal = _ideal_cached(kind, None, order_str, wsource)
-    derived.update(_counts_metrics(counts, prob, ideal["probs"]))
-    return derived
-
-
-def qaoa_circuit(kind="1adc", order_str=None, wsource="geom"):
-    """Circuito QAOA (angulos numericos) serializado para ejecutarlo desde JavaScript.
-
-    Devuelve `gates` (lista de puertas) e `info` (qubits, profundidad, tamano, ops).
-    `main.js` lo reconstruye con Qiskit en JS y lo envia con `backend.run`, que es la
-    unica via que Qollab permite para los backends remotos (IonQ): el POST sincrono
-    desde Python esta bloqueado en el sandbox. Qollab dibuja el circuito por su cuenta.
-    """
-    prob = _problem(kind, order_str, wsource)
-    theta = _ideal_cached(kind, None, order_str, wsource)["theta"]
-    from . import qaoa as ref
-
-    circuit = ref.build_circuit(prob["J"], prob["h"], REPS, theta, init=None)
-
-    gates = []
-    for item in circuit.data:
-        op = item.operation
-        gate = {
-            "g": str(op.name),
-            "q": [circuit.find_bit(item.qubits[k]).index for k in range(len(item.qubits))],
-        }
-        if item.clbits:
-            gate["c"] = [circuit.find_bit(item.clbits[k]).index for k in range(len(item.clbits))]
-        params = list(getattr(op, "params", []) or [])
-        if params:
-            gate["p"] = [float(x) for x in params]
-        gates.append(gate)
-
-    return {
-        "gates": gates,
-        "info": {
-            "num_qubits": int(circuit.num_qubits),
-            "num_clbits": int(circuit.num_clbits),
-            "depth": int(circuit.depth()),
-            "size": int(circuit.size()),
-            "ops": {str(k): int(v) for k, v in circuit.count_ops().items()},
-        },
-    }
-
-
 _IDEAL = {}
 
 
@@ -504,7 +446,7 @@ def get_problem(kind="1adc", order_str=None, wsource="geom"):
 
 def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     # Una sola optimización QAOA por (kind, init, order, wsource): reutiliza la caché
-    # que también usan qaoa_circuit/model_from_counts (evita correr QAOA dos veces).
+    # (evita correr QAOA dos veces si el mismo problema se pide de nuevo).
     ideal = _ideal_cached(kind, init_deg, order_str, wsource)
     prob = ideal["prob"]
     qa = ideal["qa"]

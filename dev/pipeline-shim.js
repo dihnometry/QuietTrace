@@ -37,16 +37,6 @@ export const run_backend = {
     call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}`),
 };
 
-export const qaoa_circuit = {
-  callPromising: (kind = '1adc', order = null, wsource = 'geom') =>
-    call(`/api/circuit?kind=${kind}&order=${q(order)}&w=${wsource}`),
-};
-
-export const model_from_counts = {
-  callPromising: (counts, kind = '1adc', order = null, wsource = 'geom') =>
-    call(`/api/counts?kind=${kind}&order=${q(order)}&w=${wsource}&counts=${encodeURIComponent(JSON.stringify(counts))}`),
-};
-
 export const resample_ideal = {
   callPromising: (shots = 1024, seed = null, kind = '1adc', init = null, order = null, wsource = 'geom') =>
     call(`/api/resample?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}`),
