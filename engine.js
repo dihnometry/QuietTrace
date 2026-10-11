@@ -529,7 +529,7 @@ function reductionChart(red) {
     + `<td>${full.valid_mass != null ? `${fmt(full.valid_mass * 100, 2)}% valid mass` : '—'}</td></tr></tbody></table>`
     + `<p class="note">Groups (traces per component): ${esc(groups)} · reduced optimum state: `
     + `<code class="bits">${esc((red.reduced_opt_x || []).join(''))}</code> (cost ${fmt(red.reduced_opt_cost, 4)})</p>`;
-  return chartCard('Component reduction · k qubits instead of n', inner);
+  return chartCard('Component reduction · k qubits instead of n (experimental)', inner);
 }
 
 function distributionChart({ title, items, ideal, w = 560, h = 340 }) {

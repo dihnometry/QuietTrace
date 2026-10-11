@@ -690,7 +690,7 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
     _gp = (None if (_exact is None or abs(_exact) < 1e-12)
            else round(float(100.0 * (best["cost"] - _exact) / abs(_exact)), 4))
     bench["methods"].append({
-        "id": "qaoa", "name": f"QAOA reduced ({k} qubit{'s' if k != 1 else ''})",
+        "id": "qaoa", "name": f"QAOA reduced ({k} qubit{'s' if k != 1 else ''}, experimental)",
         "best": best["cost"], "median": best["cost"], "worst": best["cost"],
         "state": "".join(str(int(v)) for v in best_x),
         "evals": len(hist), "time_ms": round(qaoa_ms, 2),
