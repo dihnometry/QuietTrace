@@ -118,6 +118,21 @@ Qollab/Pyodide. It needs a Python with `qiskit`, `numpy`, `scipy`.
 `quantum/`, `requirements.txt`, `README.md`, `LICENSE`). Upload that zip in Qollab
 (**Upload your own files**) and press **Run**.
 
+## Benchmark
+
+`scripts/benchmark.py` (dev-only, not uploaded) compares the QAOA statevector against
+classical search on the **same** penalized cost `C(x)`: feasible-only **greedy local search**
+and **simulated annealing** (with a call budget) vs **QAOA** (unconstrained; reports both
+success and feasibility probability). It enumerates the exact optimum for reference.
+
+```bash
+python -m scripts.benchmark --kind both --wsource comsol --runs 10 --shots 1024
+python -m scripts.benchmark --kind 2adc --cmult 5 --runs 10 --shots 3072
+```
+
+`--cmult` multiplies the conflict penalty (the UI **Conflict weight**); at 18 qubits ×5 is the
+interesting setting (see above). Results are written to a CSV.
+
 ## Theme
 
 Single **Hybrid** theme: crisp borders + green-on-black palette with an Aero-style glow and
