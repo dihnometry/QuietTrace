@@ -32,6 +32,7 @@
     document.body.appendChild(badge);
 
     try {
+      window.__QT_DEV__ = true;   // unlock the tuning knobs (depth/conflict/weights) in the preview
       await import(`../main.js?v=${V}`);
     } catch (e) {
       const s = document.getElementById('status');

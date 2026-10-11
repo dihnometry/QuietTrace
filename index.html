@@ -15,11 +15,11 @@
     <span class="view-label">Problem</span>
     <button class="tab problem-tab" data-problem="1adc" type="button">1 ADC · 9 qubits</button>
     <button class="tab problem-tab" data-problem="2adc" type="button">2 ADC · 18 qubits</button>
-    <span class="view-label controls-sep">Weights</span>
-    <button class="tab w-tab" data-w="geom" type="button">Geometric</button>
-    <button class="tab w-tab" data-w="comsol" type="button" title="COMSOL 6.1 mutual capacitance (quasi-electrostatic proxy)">COMSOL</button>
-    <span class="view-label controls-sep">Depth p</span>
-    <select id="reps" class="cmult-input" aria-label="QAOA depth p" title="QAOA layers (reps). 9q: p=3 is best. 18q: p=3 works (p=5 is slightly better but ~5x slower).">
+    <span class="view-label controls-sep dev-only">Weights</span>
+    <button class="tab w-tab dev-only" data-w="geom" type="button">Geometric</button>
+    <button class="tab w-tab dev-only" data-w="comsol" type="button" title="COMSOL 6.1 mutual capacitance (quasi-electrostatic proxy)">COMSOL</button>
+    <span class="view-label controls-sep dev-only">Depth p</span>
+    <select id="reps" class="cmult-input dev-only" aria-label="QAOA depth p" title="QAOA layers (reps). 9q: p=3 is best. 18q: p=3 works (p=5 is slightly better but ~5x slower).">
       <option value="1">p=1</option>
       <option value="2">p=2</option>
       <option value="3">p=3</option>
@@ -27,8 +27,8 @@
       <option value="5">p=5</option>
       <option value="6">p=6</option>
     </select>
-    <span class="view-label controls-sep">Conflict weight</span>
-    <select id="cmult" class="cmult-input" aria-label="Conflict penalty multiplier" title="Penalty M for the conflict constraints: higher pushes QAOA to feasible states (needed at 18 qubits, but it can hurt 9 qubits)">
+    <span class="view-label controls-sep dev-only">Conflict weight</span>
+    <select id="cmult" class="cmult-input dev-only" aria-label="Conflict penalty multiplier" title="Penalty M for the conflict constraints: higher pushes QAOA to feasible states (needed at 18 qubits, but it can hurt 9 qubits)">
       <option value="1">×1</option>
       <option value="2">×2</option>
       <option value="3">×3</option>

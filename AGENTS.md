@@ -346,6 +346,13 @@ Flujo recomendado (obligatorio antes de gastar créditos):
 10. **Estructura plana de entrada**: `main.py` **o** (`index.html` + `main.js`) en la raíz.
     El código de apoyo vive en subcarpetas.
 
+11. **Versión exportada vs. dev**: en el zip de Qollab los controles de ajuste quedan **fijos y
+    ocultos** (depth `p=5`, conflict weight `×5`, pesos **COMSOL**), porque el público no debe
+    tocarlos. El preview local (`dev/app-local.html`) define `window.__QT_DEV__ = true` y los
+    desbloquea. `main.js` decide con `const DEV = !!window.__QT_DEV__` y, si no es dev, fuerza
+    `LOCKED` y oculta `.dev-only`. Al arrancar, imprime en consola un banner con el nombre del
+    proyecto/equipo, los ajustes activos y el backend.
+
 ### Tooling local (no se sube a Qollab)
 
 `dev/` y `scripts/` existen solo para desarrollo local. **No forman parte del proyecto en

@@ -12,6 +12,14 @@ const setStatus = (t) => { if (status) status.textContent = t; };
 const setQpu = (html) => { const el = document.getElementById('qpu'); if (el) el.innerHTML = html; };
 const hasBackendNow = () => (typeof backend !== 'undefined') && !!backend;
 
+// In the Qollab export the tuning knobs are LOCKED (depth 5, conflict ×5, COMSOL
+// weights); the local dev preview (dev/app-local.html) sets window.__QT_DEV__ to
+// unlock them. The locked values follow the notebook sweeps (sections 9-10).
+const DEV = !!window.__QT_DEV__;
+const LOCKED = { wsource: 'comsol', reps: 5, cmult: 5 };
+// Team name shown in the console banner (edit this if it should read differently).
+const TEAM = 'QuietTracE';
+
 const SHOTS = 3072;
 
 const clamp = (v, lo, hi, dflt) => {
@@ -20,7 +28,7 @@ const clamp = (v, lo, hi, dflt) => {
 };
 
 let currentKind = '1adc';
-let currentW = 'geom';   // weight source: 'geom' | 'comsol'
+let currentW = DEV ? 'geom' : LOCKED.wsource;   // weight source: 'geom' | 'comsol' (locked in the export)
 let MODEL = null;
 
 async function refreshProblem() {
@@ -69,6 +77,7 @@ const currentOrder = () => {
 
 const cmultEl = () => document.getElementById('cmult');
 const currentC = () => {
+  if (!DEV) return LOCKED.cmult;                 // locked in the export
   const el = cmultEl();
   const v = el ? Number(el.value) : 1;
   return Number.isFinite(v) && v > 0 ? v : 1;   // conflict-penalty multiplier
@@ -76,18 +85,17 @@ const currentC = () => {
 
 const repsEl = () => document.getElementById('reps');
 const currentP = () => {
+  if (!DEV) return LOCKED.reps;                  // locked in the export (depth 5)
   const el = repsEl();
   const v = el ? Number(el.value) : 3;
   return Number.isInteger(v) && v >= 1 ? v : 3;  // QAOA depth (reps)
 };
 
-// Best (p, M) combination per problem, from the p/conflict-weight sweeps
-// (notebook sections 9-10): 9q is best at x1; 18q needs x5 (only 2 feasible
-// states of 262144). p=3 is the best trade-off for 18q (p=5 is ~15% better
-// but ~5x slower), so both keep p=3 and only the conflict weight changes.
+// Dev-only: recommended (p, M) per problem from the sweeps (notebook 9-10).
 const PRESETS = { '1adc': { reps: 3, cmult: 1 }, '2adc': { reps: 3, cmult: 5 } };
 
 function applyPreset(kind) {
+  if (!DEV) return;   // the export uses the locked values, not the presets
   const pre = PRESETS[kind] || PRESETS['1adc'];
   const r = repsEl(); if (r) r.value = String(pre.reps);
   const c = cmultEl(); if (c) c.value = String(pre.cmult);
@@ -177,6 +185,7 @@ problemTabs.forEach((b) => {
 const wTabs = Array.from(document.querySelectorAll('.w-tab'));
 wTabs.forEach((b) => {
   b.onclick = () => {
+    if (!DEV) return;   // weights are locked to COMSOL in the export
     if (b.dataset.w === currentW) return;
     currentW = b.dataset.w;
     wTabs.forEach((x) => x.classList.toggle('active', x === b));
@@ -325,6 +334,25 @@ function applyConnections() {
 (async () => {
   problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
   wTabs.forEach((x) => x.classList.toggle('active', x.dataset.w === currentW));
+
+  // In the export the tuning knobs are locked: hide them (dev preview keeps them).
+  if (!DEV) document.querySelectorAll('.dev-only').forEach((el) => { el.hidden = true; });
+  applyPreset(currentKind);   // dev only; no-op in the export
+
+  let backendLabel = 'none (local preview)';
+  try {
+    if (hasBackendNow()) {
+      const n = backend && backend.name;
+      backendLabel = String(typeof n === 'function' ? n() : (n ?? 'backend'));
+    }
+  } catch (e) { backendLabel = 'backend'; }
+
+  // Banner in the Qollab console (like the reference project).
+  console.log(
+    `QuietTracE ready · ${TEAM} · quantum layer assignment for an ADC–FPGA PCB (QAOA) · ` +
+    `p=${currentP()} · weights=${currentW()} · conflict x${currentC()} · backend ${backendLabel}`
+  );
+
   setStatus('Choose the problem and connections, then press ▶ Run.');
 })();
 
