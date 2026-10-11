@@ -190,8 +190,11 @@ Si defines `main()` que cumpla las reglas, el runtime lo **llama automáticament
   ```
   Usa `.callPromising`, o `.callPromisingKwargs` para kwargs.
   Usa **imports con nombre** o `import * as`; un import por defecto da `undefined`.
-  Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`
-  (incluidos `numpy`/`scipy`, aunque vengan con Pyodide).
+  Un paquete Python que solo importa tu JS **no** se instala solo: añádelo a `requirements.txt`.
+  **NO listes `numpy`/`scipy`** aunque los uses: vienen con Pyodide, y pedirlos hace que Qollab
+  instale su propia copia y choque con la de Pyodide (`scipy.linalg._fblas` →
+  `does not define PyInit__fblas` / `out of memory`). `scipy.optimize` (COBYLA) carga bien
+  mientras no lo pidas en `requirements.txt`.
   **`null`/`undefined` de JS llegan a Python como `JsNull`/`JsUndefined` (un `JsProxy`), no como
   `None`.** No los compares con `is None`: normalízalos (p. ej. un helper que mapee esos nombres
   de tipo a `None`) antes de usarlos, o el argumento revienta con

@@ -1,8 +1,10 @@
 # QuietTracE — dependencias Python
 #
 # Qiskit se fija aquí (aunque Qollab lo instala siempre) porque el pipeline lo
-# necesita. NumPy y SciPy vienen con Pyodide, pero se listan porque los módulos
-# Python se importan desde main.js (patrón del proyecto de referencia de Qollab).
+# necesita. NumPy y SciPy vienen con Pyodide: se cargan al importar y NO se listan.
+#
+# NO listar numpy/scipy aquí: al hacerlo Qollab instala su propia copia y choca con
+# la de Pyodide (scipy.linalg._fblas -> "does not define PyInit__fblas" / "out of
+# memory"), y el QAOA (que usa scipy.optimize COBYLA) deja de funcionar. La scipy de
+# Pyodide sí carga: basta con no pedirla.
 qiskit>=2.5.2,<3.0.0
-numpy>=1.24
-scipy>=1.10
