@@ -107,23 +107,17 @@ def _statevector(theta, reps, cost, n, init=None):
     return psi
 
 
-def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
-    """Corre QAOA (costo Ising + mixer X) con NumPy puro y COBYLA.
+def run_qaoa_cost(cost, reps=3, maxiter=150, theta0_value=0.5, init=None):
+    """QAOA con un vector de coste dado (2**n estados), sin J/h.
 
-    `init`: secuencia opcional de n ángulos (radianes) que fija el estado inicial
-    como ⊗_i Ry(init[i])|0>. `init=None` (por defecto) mantiene el estado inicial
-    |+>^n por Hadamard; `init=[π/2]*n` es equivalente.
-
-    Devuelve el mismo dict y la misma forma que `quantum/qaoa.py::run_qaoa`.
+    Lo usa la reduccion a componentes (`quantum/reduced.py`): el coste reducido
+    se evalua sobre los 2**k estados de las k variables de componente.
     """
-    # scipy se importa aquí para no pagar el coste de carga al abrir la página.
-    from scipy.optimize import minimize
-
-    J = np.asarray(J, dtype=float)
-    h = np.asarray(h, dtype=float)
-    n = len(h)
-
-    cost = _cost_vector(J, h)   # precalculado una sola vez
+    cost = np.asarray(cost, dtype=float)
+    size = int(cost.size)
+    n = int(round(np.log2(size)))
+    if (1 << n) != size:
+        raise ValueError("cost length must be a power of two")
 
     history = []
     argmax_history = []
@@ -138,16 +132,15 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
 
     num_parameters = 2 * reps
     theta0 = np.full(num_parameters, theta0_value)
+    from scipy.optimize import minimize
     result = minimize(energy, theta0, method="COBYLA",
                       options={"maxiter": maxiter})
 
-    # distribución final sobre los 2**n bitstrings
     psi = _statevector(result.x, reps, cost, n, init=init)
     probs = np.abs(psi) ** 2
-
     return {
         "reps": reps,
-        "num_qubits": int(n),
+        "num_qubits": n,
         "num_parameters": int(num_parameters),
         "energy": float(result.fun),
         "theta": [float(t) for t in result.x],
@@ -155,3 +148,18 @@ def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
         "argmax_history": argmax_history,
         "probabilities": [float(p) for p in probs],
     }
+
+
+def run_qaoa(J, h, reps=3, maxiter=150, theta0_value=0.5, init=None):
+    """Corre QAOA (costo Ising + mixer X) con NumPy puro y COBYLA.
+
+    `init`: secuencia opcional de n ángulos (radianes) que fija el estado inicial
+    como ⊗_i Ry(init[i])|0>. `init=None` (por defecto) mantiene el estado inicial
+    |+>^n por Hadamard; `init=[π/2]*n` es equivalente.
+
+    Devuelve el mismo dict y la misma forma que `quantum/qaoa.py::run_qaoa`.
+    """
+    J = np.asarray(J, dtype=float)
+    h = np.asarray(h, dtype=float)
+    cost = _cost_vector(J, h)   # precalculado una sola vez
+    return run_qaoa_cost(cost, reps, maxiter, theta0_value, init)

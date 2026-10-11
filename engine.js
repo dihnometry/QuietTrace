@@ -505,6 +505,24 @@ function classicalBenchmark(bench) {
   return chartCard('Classical benchmark · QAOA vs classical search', inner);
 }
 
+function reductionChart(red) {
+  const full = red.qaoa_full || {};
+  const q = red.qaoa_reduced || {};
+  const groups = (red.groups || []).map((g) => `${g.length}`).join(' · ');
+  const inner = `<p class="note">The conflict constraints force the traces to move in <strong>groups</strong>: `
+    + `only <strong>k = ${red.k}</strong> decisions are independent (not n = ${red.n}). One qubit per group, `
+    + `not per trace — and the reduced space is <strong>feasible by construction</strong> (no conflict penalty).</p>`
+    + `<table class="bench"><thead><tr><th>Model</th><th>Qubits</th><th>States</th><th>Best cost</th><th>Feasibility</th></tr></thead>`
+    + `<tbody><tr class="qaoa"><td>Reduced QAOA</td><td>${red.k}</td><td>${red.states_reduced}</td>`
+    + `<td>${fmt(q.cost, 4)}</td><td>always</td></tr>`
+    + `<tr><td>Full QAOA</td><td>${red.n}</td><td>${red.states_full}</td>`
+    + `<td>${fmt(full.cost_at_argmax, 4)}</td>`
+    + `<td>${full.valid_mass != null ? `${fmt(full.valid_mass * 100, 2)}% valid mass` : '—'}</td></tr></tbody></table>`
+    + `<p class="note">Groups (traces per component): ${esc(groups)} · reduced optimum state: `
+    + `<code class="bits">${esc((red.reduced_opt_x || []).join(''))}</code> (cost ${fmt(red.reduced_opt_cost, 4)})</p>`;
+  return chartCard('Component reduction · k qubits instead of n', inner);
+}
+
 function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
   const pad = { l: 56, r: 18, t: 30, b: 84 };
   const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
@@ -907,6 +925,11 @@ export function render(model) {
   if (model.benchmark) {
     CHART_SOURCE = isReal ? 'QAOA vs classical' : '';
     charts.push(classicalBenchmark(model.benchmark));
+  }
+
+  if (model.reduction) {
+    CHART_SOURCE = isReal ? 'component reduction' : '';
+    charts.push(reductionChart(model.reduction));
   }
 
   CHART_SOURCE = isReal ? 'geometric' : 'mock';

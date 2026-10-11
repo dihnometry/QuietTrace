@@ -679,6 +679,18 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
         "gap_pct_worst": _gp,
     })
 
+    # --- reduccion por componentes (experimento dev: k qubits en vez de n) ---
+    try:
+        from . import reduced as _red
+        _reduction = _red.run_reduced(prob, reps=int(reps))
+        _reduction["qaoa_full"] = {
+            "cost_at_argmax": best_cost,
+            "valid_mass": valid_mass,
+            "argmax_feasible": bool(after["violations"] == 0),
+        }
+    except Exception:  # noqa: BLE001
+        _reduction = None
+
     return {
         "source": "qaoa",
         "meta": {
@@ -705,6 +717,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
         "costs": {"before": before, "after": after},
         "exact": {"cost": round(float(exact_cost), 6) if exact_cost is not None else None},
         "benchmark": bench,
+        "reduction": _reduction,
         "convergence": {
             "x": list(range(len(hist))),
             "energy": [round(v, 4) for v in hist],

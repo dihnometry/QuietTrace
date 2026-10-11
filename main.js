@@ -128,6 +128,7 @@ async function runPipeline() {
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW, currentC(), currentP())).toJs();
+  if (!DEV) delete model.reduction;   // reduccion por componentes: solo dev
 
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
