@@ -28,8 +28,6 @@ equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,C
 - **Summary chips:** *Qubits*, *Circuit cost (baseline → after QAOA)* and *Cost reduction*.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
-- **QAOA circuit:** the ansatz as sent to the backend (initial Hadamards, p cost layers of
-  RZZ/RZ, mixer RX layers, measurement), drawn with Qiskit's matplotlib drawer.
 - **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**.
 - **Weights:** switch between the **Geometric** heuristic and the **COMSOL 6.1** mutual
   capacitance (quasi-electrostatic proxy) — same QAOA, so you can compare how the layer
@@ -65,7 +63,7 @@ simulators work either way.) The counts return to Python (`model_from_counts`) f
 Qollab enforces *one job per run* on IonQ. The **QPU run** panel shows which backend ran, its
 type (local simulator / IonQ), the job id and the executed circuit. Simulators run in your
 browser or on IonQ's cloud and are **free**; only the IonQ quantum computers spend **credits**.
-A local preview has no backend, so that section stays empty (the circuit drawing still shows).
+A local preview has no backend, so that section stays empty.
 
 ## Structure
 

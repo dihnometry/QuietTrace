@@ -900,32 +900,6 @@ function backendClass(q) {
   return { label: q.backend_type || q.backend_name || 'backend', color: COL.muted };
 }
 
-// Drawing of the QAOA circuit (SVG from Python, or a text fallback).
-let CIRCUIT_URL = null;
-
-export function renderCircuit(cd) {
-  const el = document.getElementById('circuit');
-  if (!el) return;
-  if (!cd) { el.innerHTML = ''; return; }
-  const info = cd.info || {};
-  const ops = Object.entries(info.ops || {})
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `${k}×${v}`)
-    .join(' · ');
-  let body;
-  if (cd.svg) {
-    if (CIRCUIT_URL) URL.revokeObjectURL(CIRCUIT_URL);
-    CIRCUIT_URL = URL.createObjectURL(new Blob([cd.svg], { type: 'image/svg+xml' }));
-    body = `<img class="circuit-img" alt="QAOA circuit" src="${CIRCUIT_URL}" />`;
-  } else if (cd.text) {
-    body = `<pre class="circuit-text">${esc(cd.text)}</pre>`;
-  } else {
-    body = `<p class="note">Circuit drawing unavailable${cd.draw_error ? ` (${esc(cd.draw_error)})` : ''}.</p>`;
-  }
-  el.innerHTML = `<p class="note"><strong>${info.num_qubits} qubits</strong> · depth ${info.depth} · `
-    + `${info.size} gates${ops ? ` · ${esc(ops)}` : ''}</p>${body}`;
-}
-
 export function renderBackend(q, model) {
   const el = document.getElementById('qpu');
   if (!el) return;

@@ -5,7 +5,8 @@
 // circuit is sent and the charts use that backend's counts.
 
 import * as pipeline from 'quantum.pipeline'; // Pyodide in Qollab; shim locally
-import { render, renderBackend, renderCircuit, routingPreview } from './engine.js';
+import { QuantumCircuit } from 'qiskit';       // Qiskit in JS (stubbed in the local preview)
+import { render, renderBackend, routingPreview } from './engine.js';
 
 const status = document.getElementById('status');
 const setStatus = (t) => { if (status) status.textContent = t; };
@@ -32,14 +33,13 @@ function safeJobId(job) {
 // Build the QAOA circuit in JS (Qiskit in the browser) from the gate list that
 // Python returned. Running the job from JS is REQUIRED on Qollab: the remote
 // (IonQ) backends cannot be reached from Python (the sandbox blocks the POST).
-async function buildCircuit(cd) {
-  const { QuantumCircuit } = await import('qiskit');
+function buildCircuit(cd) {
   const info = cd.info || {};
   const qc = QuantumCircuit(info.num_qubits, info.num_clbits);
   for (const g of cd.gates || []) {
     const q = g.q || []; const c = g.c || []; const p = g.p || [];
     switch (g.g) {
-      case 'barrier': qc.barrier(); break;
+      case 'barrier': break;   // no effect on results
       case 'h': qc.h(q[0]); break;
       case 'x': qc.x(q[0]); break;
       case 'y': qc.y(q[0]); break;
@@ -61,21 +61,29 @@ async function buildCircuit(cd) {
 async function runOnBackend(cd) {
   const bname = backendName();
   let qc = null;
+  let buildErr = null;
   try {
-    qc = await buildCircuit(cd);
+    qc = buildCircuit(cd);
   } catch (eBuild) {
-    console.warn('JS circuit build failed; falling back to the Python run_backend path', eBuild);
+    buildErr = eBuild;
+    console.error('JS circuit build failed:', eBuild);
   }
   if (qc) {
+    console.log('QuietTracE: submitting the QAOA circuit from JS to', bname || 'the backend');
     const job = await backend.run(qc, { shots: SHOTS });
     const jobId = safeJobId(job);
     const counts = (await job.result()).get_counts().toJs();
     return { counts, job_id: jobId, backend_name: bname };
   }
-  // Fallback (works on local simulators; IonQ still needs the JS path).
-  const q = (await pipeline.run_backend.callPromising(
-    backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
-  return { counts: q.counts, job_id: q.job_id || '', backend_name: q.backend_name || bname };
+  // Fallback: run from Python. Works on local simulators; IonQ still needs JS.
+  console.warn('QuietTracE: JS circuit build failed, falling back to Python run_backend');
+  try {
+    const q = (await pipeline.run_backend.callPromising(
+      backend, SHOTS, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
+    return { counts: q.counts, job_id: q.job_id || '', backend_name: q.backend_name || bname };
+  } catch (eRun) {
+    throw new Error(`JS circuit build failed (${buildErr}); the Python fallback also failed (${eRun})`);
+  }
 }
 
 const clamp = (v, lo, hi, dflt) => {
@@ -154,19 +162,16 @@ async function runPipeline() {
 
   const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW)).toJs();
 
-  // QAOA circuit diagram (independent of the backend): Python draws it, JS shows it.
-  let cd = null;
-  try {
-    setStatus('Drawing the QAOA circuit…');
-    cd = (await pipeline.qaoa_circuit.callPromising(currentKind, currentOrder(), currentW)).toJs();
-    renderCircuit(cd);
-  } catch (eDraw) {
-    console.error('circuit diagram failed:', eDraw);
-  }
-
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
+      // Serialize the QAOA circuit in Python; JS rebuilds it with Qiskit and submits it.
+      let cd = null;
+      try {
+        cd = (await pipeline.qaoa_circuit.callPromising(currentKind, currentOrder(), currentW)).toJs();
+      } catch (eSer) {
+        console.error('circuit serialization failed:', eSer);
+      }
       const res = await runOnBackend(cd);
       const over = (await pipeline.model_from_counts.callPromising(
         res.counts, currentKind, currentOrder(), currentW)).toJs();

@@ -204,10 +204,10 @@ Si defines `main()` que cumpla las reglas, el runtime lo **llama automáticament
   Dentro de Python, `backend.run(...)` hace un POST síncrono con `requests` que el sandbox
   bloquea (`Failed to fetch`): los simuladores locales funcionan (no salen a la red) pero los
   **backends remotos (IonQ) fallan**. Por eso el circuito se construye en Python, se serializa
-  (`quantum/pipeline.qaoa_circuit`), se reconstruye en JS con Qiskit y se envía allí; los conteos
-  vuelven a Python (`quantum/pipeline.model_from_counts`) para calcular las métricas.
-  El dibujo del circuito (`circuit.draw("mpl")`) necesita el extra `qiskit[visualization]`
-  (aporta `pylatexenc`), que va en `requirements.txt`.
+  (`quantum/pipeline.qaoa_circuit`), se reconstruye en JS con Qiskit (`import { QuantumCircuit }
+  from 'qiskit'`) y se envía allí; los conteos vuelven a Python
+  (`quantum/pipeline.model_from_counts`) para calcular las métricas. Qollab dibuja el circuito
+  por su cuenta, así que **no** hace falta dibujarlo en la UI.
 
 ### 2.7. Archivos de datos (crítico)
 

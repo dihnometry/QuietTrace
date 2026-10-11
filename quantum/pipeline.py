@@ -328,18 +328,13 @@ def model_from_counts(counts, kind="1adc", order_str=None, wsource="geom"):
 
 
 def qaoa_circuit(kind="1adc", order_str=None, wsource="geom"):
-    """Circuito QAOA (angulos numericos) para dibujar y ejecutar desde JavaScript.
+    """Circuito QAOA (angulos numericos) serializado para ejecutarlo desde JavaScript.
 
-    Devuelve:
-      - `gates`: lista de puertas serializada, para que `main.js` reconstruya el
-        circuito con Qiskit en JS y lo envie con `backend.run` (unica via valida
-        para IonQ en Qollab).
-      - `info`: resumen (qubits, profundidad, tamano, operaciones).
-      - `svg`: dibujo del circuito (matplotlib) listo para mostrar como imagen;
-        o `text` como respaldo si el drawer no esta disponible.
+    Devuelve `gates` (lista de puertas) e `info` (qubits, profundidad, tamano, ops).
+    `main.js` lo reconstruye con Qiskit en JS y lo envia con `backend.run`, que es la
+    unica via que Qollab permite para los backends remotos (IonQ): el POST sincrono
+    desde Python esta bloqueado en el sandbox. Qollab dibuja el circuito por su cuenta.
     """
-    import io
-
     prob = _problem(kind, order_str, wsource)
     theta = _ideal_cached(kind, None, order_str, wsource)["theta"]
     from . import qaoa as ref
@@ -360,7 +355,7 @@ def qaoa_circuit(kind="1adc", order_str=None, wsource="geom"):
             gate["p"] = [float(x) for x in params]
         gates.append(gate)
 
-    out = {
+    return {
         "gates": gates,
         "info": {
             "num_qubits": int(circuit.num_qubits),
@@ -370,23 +365,6 @@ def qaoa_circuit(kind="1adc", order_str=None, wsource="geom"):
             "ops": {str(k): int(v) for k, v in circuit.count_ops().items()},
         },
     }
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        from matplotlib import pyplot as plt
-        fig = circuit.draw("mpl", scale=0.7)
-        buf = io.StringIO()
-        fig.savefig(buf, format="svg", facecolor="white", bbox_inches="tight")
-        plt.close(fig)
-        out["svg"] = buf.getvalue()
-    except Exception as exc:  # noqa: BLE001
-        out["svg"] = None
-        out["draw_error"] = f"{type(exc).__name__}: {exc}"
-        try:
-            out["text"] = str(circuit.draw("text"))
-        except Exception:  # noqa: BLE001
-            out["text"] = None
-    return out
 
 
 _IDEAL = {}
