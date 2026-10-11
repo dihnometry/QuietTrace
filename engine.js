@@ -460,10 +460,22 @@ function combosCard(scale) {
 function classicalBenchmark(bench) {
   const secs = (ms) => `${fmt(ms / 1000, 2)} s`;
   const rows = (bench.methods || []).map((m) => {
-    const gapPct = (m.gap_pct == null) ? '—' : `${fmt(m.gap_pct, 3)}%`;
-    const succ = (m.success == null) ? '—' : `${Math.round(m.success * 100)}%`;
+    const gp = m.gap_pct;
     const median = (m.median == null) ? '—' : fmt(m.median, 4);
     const state = m.state ? `<code class="bits">${esc(m.state)}</code>` : '—';
+    // Cercania = 100% - gap% (100% = optimo exacto). Barra visual + numero.
+    let gapCell = '—';
+    if (gp != null) {
+      const close = Math.max(0, 100 - Math.min(gp, 100));
+      const col = close > 99.5 ? '#54ff57' : (close > 80 ? '#ffd166' : '#ff6b6b');
+      const spread = (m.gap_pct_median != null)
+        ? `<span class="bench-sub">med ${fmt(m.gap_pct_median, 2)}% · worst ${fmt(m.gap_pct_worst, 2)}%</span>`
+        : '';
+      gapCell = `<span class="gbar"><span style="width:${close.toFixed(1)}%;background:${col}"></span></span>`
+        + `<span class="gval">${fmt(gp, 3)}%</span>${spread}`;
+    }
+    const hit = (m.success == null) ? '—'
+      : (m.success >= 0.999 ? '✓' : (m.success <= 0.001 ? '·' : `${Math.round(m.success * 100)}%`));
     let time = '—';
     if (m.time_opt_ms != null && m.time_exec_ms != null) {
       time = `${secs(m.time_opt_ms + m.time_exec_ms)}`
@@ -475,17 +487,20 @@ function classicalBenchmark(bench) {
     }
     const cls = m.id === 'qaoa' ? ' class="qaoa"' : '';
     return `<tr${cls}><td>${esc(m.name)}</td><td>${fmt(m.best, 4)}</td><td>${median}</td>`
-      + `<td>${state}</td><td>${gapPct}</td><td>${m.evals == null ? '—' : m.evals}</td>`
-      + `<td>${time}</td><td>${succ}</td></tr>`;
+      + `<td>${state}</td><td class="gapcell">${gapCell}</td>`
+      + `<td>${m.evals == null ? '—' : m.evals}</td><td>${time}</td><td class="hit">${hit}</td></tr>`;
   }).join('');
   const exact = bench.exact == null ? '—' : fmt(bench.exact, 4);
   const exactState = bench.exact_state ? `<code class="bits">${esc(bench.exact_state)}</code>` : '—';
   const inner = `<p class="note">Exact optimum <strong>${exact}</strong> at state ${exactState} · `
     + `${bench.budget} cost evaluations × ${bench.trials} trials. Classical search is restricted to `
     + `feasible assignments; QAOA is unconstrained. <strong>QAOA time = local optimization + circuit `
-    + `execution</strong> on the backend ("opt + exec"). Gap % = how far each method is from the optimum.</p>`
+    + `execution</strong> on the backend ("opt + exec").</p>`
+    + `<p class="note"><strong>Gap %</strong> = how far the best result is from the optimum; the bar is `
+    + `the <em>closeness</em> (100% = exact optimum). "Hit" (✓/·) is the per-trial success, which is `
+    + `<em>binary by nature</em> here: on a discrete problem a run either lands on the exact optimum or not.</p>`
     + `<table class="bench"><thead><tr><th>Method</th><th>Best cost</th><th>Median</th>`
-    + `<th>Best state</th><th>Gap %</th><th>Evals</th><th>Time</th><th>Success</th></tr></thead>`
+    + `<th>Best state</th><th>Gap %</th><th>Evals</th><th>Time</th><th>Hit</th></tr></thead>`
     + `<tbody>${rows}</tbody></table>`;
   return chartCard('Classical benchmark · QAOA vs classical search', inner);
 }

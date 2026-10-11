@@ -345,6 +345,14 @@ body {
 .bench tr:last-child td { border-bottom: none; }
 .bench-sub { display: block; font-size: 0.64rem; color: var(--muted); font-weight: 400; }
 .bits { font: 0.72rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); letter-spacing: 0.06em; }
+.gapcell { text-align: left; }
+.gbar {
+  display: inline-block; width: 64px; height: 8px; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12); overflow: hidden; vertical-align: middle; margin-right: 6px;
+}
+.gbar > span { display: block; height: 100%; }
+.gval { font-variant-numeric: tabular-nums; }
+.hit { font-weight: 700; text-align: center; }
 
 /* boton de expandir en cada grafica */
 .chart h3 { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }

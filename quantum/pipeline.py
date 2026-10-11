@@ -553,6 +553,7 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
             states.append(bits)
             evals = ev
         k = int(np.argmin(bests))
+        gaps = [g for g in (gap_pct_of(v) for v in bests) if g is not None]
         methods.append({
             "id": mid, "name": name,
             "best": round(min(bests), 6),
@@ -564,6 +565,8 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
             "success": succ_of(bests),
             "gap": gap_of(min(bests)),
             "gap_pct": gap_pct_of(min(bests)),
+            "gap_pct_median": (round(float(np.median(gaps)), 4) if gaps else None),
+            "gap_pct_worst": (round(float(max(gaps)), 4) if gaps else None),
         })
 
     # --- referencia PERFECTA: busqueda exhaustiva de los 2**n estados ---
@@ -579,6 +582,7 @@ def _classical_benchmark(prob, budget=200, trials=5, seed=12345):
         "evals": int(ex_evals),
         "time_ms": round(ex_ms, 2),
         "success": 1.0, "gap": 0.0, "gap_pct": 0.0,
+        "gap_pct_median": 0.0, "gap_pct_worst": 0.0,
     })
 
     return {
@@ -657,6 +661,8 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
     # --- classical benchmark (greedy local + simulated annealing vs QAOA) ---
     bench = _classical_benchmark(prob)
     _exact = bench["exact"]
+    _gp = (None if (_exact is None or abs(_exact) < 1e-12)
+           else round(float(100.0 * (best_cost - _exact) / abs(_exact)), 4))
     bench["methods"].append({
         "id": "qaoa", "name": "QAOA (best produced)",
         "best": best_cost, "median": best_cost, "worst": best_cost,
@@ -668,8 +674,9 @@ def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom", cmult=
         "success": (None if _exact is None
                     else (1.0 if abs(best_cost - _exact) < 1e-8 else 0.0)),
         "gap": (None if _exact is None else round(float(best_cost - _exact), 6)),
-        "gap_pct": (None if (_exact is None or abs(_exact) < 1e-12)
-                    else round(float(100.0 * (best_cost - _exact) / abs(_exact)), 4)),
+        "gap_pct": _gp,
+        "gap_pct_median": _gp,
+        "gap_pct_worst": _gp,
     })
 
     return {
