@@ -79,6 +79,12 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *args):  # keep the console quiet-ish
         pass
 
+    def end_headers(self):
+        # Evita que el navegador cachee main.js/engine.js/index.html entre recargas
+        # (main.js importa './engine.js' sin cache-buster).
+        self.send_header("Cache-Control", "no-store, must-revalidate")
+        super().end_headers()
+
     def do_GET(self):
         url = urlparse(self.path)
         if url.path.startswith("/api/"):
@@ -89,7 +95,6 @@ class Handler(SimpleHTTPRequestHandler):
         body = json.dumps(obj, default=lambda o: o.item() if hasattr(o, "item") else str(o)).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
