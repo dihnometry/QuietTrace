@@ -207,7 +207,7 @@ def _counts_metrics(counts, prob, probs):
     return out
 
 
-def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+def run_backend(backend, shots=3072, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
     Follows Qollab's one-job-per-run rule on IonQ: no iteration against the QPU;

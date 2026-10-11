@@ -12,7 +12,7 @@ const setStatus = (t) => { if (status) status.textContent = t; };
 const setQpu = (html) => { const el = document.getElementById('qpu'); if (el) el.innerHTML = html; };
 const hasBackendNow = () => (typeof backend !== 'undefined') && !!backend;
 
-const SHOTS = 1024;
+const SHOTS = 3072;
 
 const clamp = (v, lo, hi, dflt) => {
   const x = Number(v);

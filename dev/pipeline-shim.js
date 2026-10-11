@@ -33,7 +33,7 @@ export const random_order = {
 };
 
 export const run_backend = {
-  callPromising: (backend, shots = 1024, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null, wsource = 'geom') =>
+  callPromising: (backend, shots = 3072, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null, wsource = 'geom') =>
     call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}`),
 };
 

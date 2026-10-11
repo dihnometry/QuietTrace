@@ -79,7 +79,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order, wsource))
             if url.path == "/api/run":
                 from qiskit.providers.basic_provider import BasicSimulator
-                shots = int(_opt(q, "shots") or 1024)
+                shots = int(_opt(q, "shots") or 3072)
                 return self._send(200, pipeline.run_backend(
                     BasicSimulator(), shots, pipeline.REPS, pipeline.MAXITER, kind, init_deg, order, wsource))
             return self._send(404, {"error": f"unknown endpoint {url.path}"})
