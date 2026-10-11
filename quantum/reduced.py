@@ -74,6 +74,43 @@ def reduced_cost_vector(prob, base, comp_of, k, chunk=1 << 16):
     return cost
 
 
+def synthetic_instance_sizes(sizes, cmult=5.0, wsource="geom"):
+    """Instancia sintetica con componentes de tamanos VARIADOS.
+
+    Cada bloque de tamano `m` usa el orden de salida `[1,2,...,m-1,0]` (una rotacion),
+    cuyo grafo de inversiones es una ESTRELLA centrada en la primera pista -> conexo y
+    bipartito -> 1 componente de m pistas. `k = len(sizes)`.
+    """
+    from . import modelo as M
+
+    nets = []
+    order = []
+    idx = 0
+    for m in sizes:
+        blk = [f"N{idx + i}" for i in range(m)]
+        nets.extend(blk)
+        order.extend(blk[1:] + blk[:1])   # rotacion -> estrella
+        idx += m
+    routes = M.make_routes(nets, order)
+    conflicts = M.find_conflicts(nets, routes)
+    if wsource == "comsol":
+        from . import capacitance as _cap
+        W = _cap.mutual_capacitance_weights(nets, routes, conflicts)
+    else:
+        W = M.geometric_weights(nets, routes, conflicts)
+    vias = np.full(len(nets), 2.0, dtype=float)
+    lam_v = 0.5
+    feasible = M.conflict_coloring(len(nets), conflicts)
+    upper = M.soft_cost(feasible, W, vias, lam_v)
+    Mpen = (upper + max(1.0, 0.05 * upper)) * float(cmult)
+    Q, cQ, J, h, cI = M.build_model(W, vias, lam_v, conflicts, M=Mpen)
+    return {
+        "nets": nets, "in_order": list(nets), "out_order": list(order),
+        "conflicts": conflicts, "W": W, "vias": vias, "lam_v": lam_v,
+        "M": Mpen, "cmult": float(cmult), "J": J, "h": h,
+    }
+
+
 def synthetic_instance(k, per=2, cmult=5.0, wsource="geom"):
     """Instancia sintetica con k COMPONENTES (n = k*per pistas), contrato del pipeline.
 

@@ -17,6 +17,15 @@ const COL = {
 };
 
 const fmt = (n, d = 2) => Number(n).toFixed(d);
+// Etiquetas de eje: notacion cientifica cuando el valor es pequeno (p. ej. 1.2e-5),
+// para que no salga "0.00".
+const fmtTick = (v) => {
+  const a = Math.abs(Number(v));
+  if (!(a > 0)) return '0';
+  if (a < 0.01) return Number(v).toExponential(1);
+  if (a < 1) return Number(v).toFixed(3);
+  return Number(v).toFixed(2);
+};
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 const reducedMotion = () =>
@@ -550,7 +559,7 @@ function distributionChart({ title, items, ideal, w = 560, h = 340 }) {
     const yv = maxP * g / 4;
     const y = pad.t + ih - (yv / maxP) * ih;
     s += `<line x1="${pad.l}" y1="${y.toFixed(1)}" x2="${w - pad.r}" y2="${y.toFixed(1)}" stroke="${COL.grid}" stroke-width="1" stroke-dasharray="2 6" opacity="0.75"/>`;
-    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmt(yv, 2)}</text>`;
+    s += `<text x="${pad.l - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="13" fill="${COL.muted}">${fmtTick(yv)}</text>`;
   }
 
   const bar = (x, width, val, color, i) => {

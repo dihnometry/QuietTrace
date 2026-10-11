@@ -100,6 +100,7 @@ const PRESETS = {
   '25': { reps: 1, cmult: 5 },
   'syn9': { reps: 3, cmult: 5, model: 'reduced' },
   'syn18': { reps: 3, cmult: 5, model: 'reduced' },
+  'synv': { reps: 3, cmult: 5, model: 'reduced' },
 };
 
 function applyPreset(kind) {

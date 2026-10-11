@@ -84,7 +84,10 @@ def _problem(kind="1adc", order_str=None, wsource="geom", cmult=1.0):
         nets = list(problem25.NETS_25)
         default = list(problem25.OUT_ORDER)
     elif kind.startswith("syn"):
-        from . import reduced as _red  # sintetica con k componentes (solo dev)
+        from . import reduced as _red  # sintetica (solo dev/publica)
+        if kind == "synv":
+            # componentes de tamanos variados (2,3,4): 18 grupos, n = 54 pistas
+            return _red.synthetic_instance_sizes([2, 3, 4] * 6, cmult=cmult, wsource=wsource)
         return _red.synthetic_instance(int(kind[3:] or "9"), cmult=cmult, wsource=wsource)
     else:
         nets = list(M.NETS)
@@ -450,7 +453,8 @@ def _nets_and_default(kind):
         return list(problem25.NETS_25), list(problem25.OUT_ORDER)
     if kind.startswith("syn"):
         from . import reduced as _red
-        p = _red.synthetic_instance(int(kind[3:] or "9"))
+        p = (_red.synthetic_instance_sizes([2, 3, 4] * 6) if kind == "synv"
+             else _red.synthetic_instance(int(kind[3:] or "9")))
         return list(p["nets"]), list(p["out_order"])
     return list(M.NETS), list(M.RIGHT_ORDER)
 
@@ -635,7 +639,9 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
     base, groups, comp_of, k = _red.reduce_problem(prob)
     rcost = _red.reduced_cost_vector(prob, base, comp_of, k)
     maxiter = MAXITER if k <= 18 else 12
+    t0 = time.perf_counter()
     qa = qaoa.run_qaoa_cost(rcost, reps=int(reps), maxiter=maxiter)
+    qaoa_ms = (time.perf_counter() - t0) * 1000.0
     probs = np.asarray(qa["probabilities"], dtype=float)
     hist = qa["history"]
     argmax = qa.get("argmax_history") or []
@@ -687,7 +693,8 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
         "id": "qaoa", "name": f"QAOA reduced ({k} qubit{'s' if k != 1 else ''})",
         "best": best["cost"], "median": best["cost"], "worst": best["cost"],
         "state": "".join(str(int(v)) for v in best_x),
-        "evals": len(hist), "time_ms": None, "time_opt_ms": None, "time_exec_ms": None,
+        "evals": len(hist), "time_ms": round(qaoa_ms, 2),
+        "time_opt_ms": round(qaoa_ms, 2), "time_exec_ms": None,
         "success": (None if _exact is None else (1.0 if abs(best["cost"] - _exact) < 1e-8 else 0.0)),
         "gap": (None if _exact is None else round(float(best["cost"] - _exact), 6)),
         "gap_pct": _gp, "gap_pct_median": _gp, "gap_pct_worst": _gp,
