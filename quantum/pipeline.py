@@ -602,8 +602,8 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
     from . import reduced as _red
     from . import classical as _C
 
-    ideal = _ideal_cached(kind, init_deg, order_str, wsource, cmult, reps)
-    prob = ideal["prob"]
+    # El reducido NO necesita el QAOA completo (n qubits): solo el problema.
+    prob = _problem(kind, order_str, wsource, cmult)
     nets = prob["nets"]
     n = len(nets)
     W = np.asarray(prob["W"], dtype=float)
