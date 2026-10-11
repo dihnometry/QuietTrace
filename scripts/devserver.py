@@ -64,22 +64,23 @@ class Handler(SimpleHTTPRequestHandler):
         kind = _opt(q, "kind") or "1adc"
         order = _opt(q, "order")
         init = _opt(q, "init")
+        wsource = _opt(q, "w") or "geom"
         init_deg = int(init) if init not in (None, "null", "None") else None
         try:
             if url.path == "/api/model":
-                return self._send(200, pipeline.get_model(kind, init_deg, order))
+                return self._send(200, pipeline.get_model(kind, init_deg, order, wsource))
             if url.path == "/api/problem":
-                return self._send(200, pipeline.get_problem(kind, order))
+                return self._send(200, pipeline.get_problem(kind, order, wsource))
             if url.path == "/api/random":
                 return self._send(200, pipeline.random_order(kind))
             if url.path == "/api/resample":
                 shots = int(_opt(q, "shots") or 1024)
-                return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order))
+                return self._send(200, pipeline.resample_ideal(shots, None, kind, init_deg, order, wsource))
             if url.path == "/api/run":
                 from qiskit.providers.basic_provider import BasicSimulator
                 shots = int(_opt(q, "shots") or 1024)
                 return self._send(200, pipeline.run_backend(
-                    BasicSimulator(), shots, pipeline.REPS, pipeline.MAXITER, kind, init_deg, order))
+                    BasicSimulator(), shots, pipeline.REPS, pipeline.MAXITER, kind, init_deg, order, wsource))
             return self._send(404, {"error": f"unknown endpoint {url.path}"})
         except Exception as exc:  # noqa: BLE001
             self._send(500, {"error": f"{type(exc).__name__}: {exc}"})

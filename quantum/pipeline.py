@@ -38,10 +38,14 @@ def _parse_order(nets, order_str, default):
     return list(default)
 
 
-def _build_problem(nets, order):
+def _build_problem(nets, order, wsource="geom"):
     routes = M.make_routes(nets, order)
     conflicts = M.find_conflicts(nets, routes)
-    W = M.geometric_weights(nets, routes, conflicts)
+    if wsource == "comsol":
+        from . import capacitance
+        W = capacitance.mutual_capacitance_weights(nets, routes, conflicts)
+    else:
+        W = M.geometric_weights(nets, routes, conflicts)
     vias = np.full(len(nets), VIAS_PER_L4, dtype=float)
     lam_v = LAMBDA_V
     feasible = M.conflict_coloring(len(nets), conflicts)  # raises if not bipartite
@@ -55,7 +59,7 @@ def _build_problem(nets, order):
     }
 
 
-def _problem(kind="1adc", order_str=None):
+def _problem(kind="1adc", order_str=None, wsource="geom"):
     if kind == "2adc":
         from . import problem2
         nets = list(problem2.NETS_2ADC)
@@ -66,10 +70,10 @@ def _problem(kind="1adc", order_str=None):
 
     order = _parse_order(nets, order_str, default)
     try:
-        return _build_problem(nets, order)
+        return _build_problem(nets, order, wsource)
     except ValueError:
         # order makes the conflict graph non-bipartite -> fall back to default
-        return _build_problem(nets, default)
+        return _build_problem(nets, default, wsource)
 
 
 def _bits_from_index(k, n):
@@ -168,14 +172,14 @@ def _layer_members(bits, nets):
     }
 
 
-def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None):
+def run_backend(backend, shots=1024, reps=REPS, maxiter=MAXITER, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     """Optimize locally, then run the final QAOA circuit ONCE on `backend`.
 
     Follows Qollab's one-job-per-run rule on IonQ: no iteration against the QPU;
     it optimizes with the fast simulator and sends a single circuit.
     Returns the measured counts.
     """
-    prob = _problem(kind, order_str)
+    prob = _problem(kind, order_str, wsource)
     init = _init_vector(init_deg, len(prob["nets"]))
     qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=reps, maxiter=maxiter, init=init)
 
@@ -270,35 +274,35 @@ def _fields_from_counts(counts, prob, n):
     }
 
 
-def model_from_counts(counts, kind="1adc"):
+def model_from_counts(counts, kind="1adc", wsource="geom"):
     """Campos desde conteos, aceptando un objeto JS (Pyodide) o un dict."""
     if hasattr(counts, "to_py"):  # Pyodide JsProxy
         counts = counts.to_py()
     counts = {str(k): int(v) for k, v in counts.items()}
-    prob = _problem(kind)
+    prob = _problem(kind, None, wsource)
     return _fields_from_counts(counts, prob, len(prob["nets"]))
 
 
 _IDEAL = {}
 
 
-def _ideal_cached(kind="1adc", init_deg=None, order_str=None):
-    key = (kind, init_deg, order_str)
+def _ideal_cached(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+    key = (kind, init_deg, order_str, wsource)
     if key not in _IDEAL:
-        prob = _problem(kind, order_str)
+        prob = _problem(kind, order_str, wsource)
         init = _init_vector(init_deg, len(prob["nets"]))
         qa = qaoa.run_qaoa(prob["J"], prob["h"], reps=REPS, maxiter=MAXITER, init=init)
         _IDEAL[key] = {"prob": prob, "probs": np.asarray(qa["probabilities"], dtype=float)}
     return _IDEAL[key]
 
 
-def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None):
+def resample_ideal(shots=1024, seed=None, kind="1adc", init_deg=None, order_str=None, wsource="geom"):
     """Remuestrea la distribucion IDEAL con `shots` tiradas (simulacion LOCAL).
 
     No usa el backend: sirve para ver el efecto del numero de shots (ruido de
     muestreo) sobre las metricas y sobre 'encontrar el optimo'.
     """
-    ideal = _ideal_cached(kind, init_deg, order_str)
+    ideal = _ideal_cached(kind, init_deg, order_str, wsource)
     prob = ideal["prob"]
     probs = ideal["probs"]
     n = len(prob["nets"])
@@ -385,8 +389,8 @@ def random_order(kind="1adc"):
     return {"order": order}
 
 
-def get_problem(kind="1adc", order_str=None):
-    prob = _problem(kind, order_str)
+def get_problem(kind="1adc", order_str=None, wsource="geom"):
+    prob = _problem(kind, order_str, wsource)
     nets = prob["nets"]
     n = len(nets)
     before_bits = [0] * n
@@ -395,7 +399,8 @@ def get_problem(kind="1adc", order_str=None):
     return {
         "source": "problem",
         "loading": True,
-        "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind == "2adc" else 1},
+        "meta": {"n_nets": n, "num_qubits": n, "adcs": 2 if kind == "2adc" else 1,
+                 "wsource": wsource},
         "nets": nets,
         "in_order": nets,
         "out_order": list(prob["out_order"]),
@@ -406,8 +411,8 @@ def get_problem(kind="1adc", order_str=None):
     }
 
 
-def get_model(kind="1adc", init_deg=None, order_str=None):
-    prob = _problem(kind, order_str)
+def get_model(kind="1adc", init_deg=None, order_str=None, wsource="geom"):
+    prob = _problem(kind, order_str, wsource)
     nets = prob["nets"]
     n = len(nets)
     W, vias, lam_v, conflicts, Mpen = (prob["W"], prob["vias"], prob["lam_v"],
@@ -478,6 +483,7 @@ def get_model(kind="1adc", init_deg=None, order_str=None):
             "num_parameters": qa["num_parameters"],
             "reps": REPS,
             "adcs": 2 if kind == "2adc" else 1,
+            "wsource": wsource,
             "approx_gap": round(gap, 6) if gap is not None else None,
         },
         "nets": nets,

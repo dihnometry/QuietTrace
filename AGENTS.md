@@ -362,6 +362,8 @@ quantum/pipeline.py      # une modelo + QAOA; devuelve el contrato del motor
 quantum/modelo.py        # modelo del equipo (recortado: sin helpers sin usar)
 quantum/qaoa.py          # QAOA de referencia (movido de main.py)
 quantum/fastqaoa.py      # QAOA rápido NumPy (lo usa el pipeline)
+quantum/capacitance.py   # pesos W_ij desde C'_m de COMSOL (fuente de pesos opcional)
+quantum/comsol_capacitance.csv  # calibración COMSOL 6.1 (11 puntos, 0.2–4 mm)
 quantum/pcb.py           # modelo MOCK (modo demo / respaldo)
 requirements.txt         # paquetes Python (Qiskit)
 README.md                # write-up (Project Card)
@@ -423,6 +425,11 @@ Un cambio no está terminado hasta que:
    `quantum/qaoa.py` y el pipeline usa `quantum/fastqaoa.py` (NumPy, exacto y rápido).
    La optimización corre **localmente con statevector** (sin `backend`, sin jobs, sin
    créditos). `quantum/pcb.py` queda como modelo **mock** (demo/respaldo).
+   **Fuente de pesos conmutable:** `W` geométrico (`modelo.geometric_weights`) o `W` de
+   **COMSOL** (`quantum/capacitance.py`, integrando `C'_m` de `quantum/comsol_capacitance.csv`);
+   se elige con `wsource="geom"|"comsol"` en el pipeline y con **Weights: Geometric / COMSOL**
+   en la UI. La validación (interpolación/extrapolación, `W_geom` vs `W_COMSOL`, barrido de
+   `λv`) vive en el notebook, no en la app.
 3. **Entrada de datos:** archivos del proyecto en el repo, siempre **< 2 MB** y con **rutas
    literales** en Python. Un dataset mayor iría por GET desde la web (sección 2.5).
 4. **Nombre de proyecto/usuario en Qollab:** pendiente (para el enlace público).

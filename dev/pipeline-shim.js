@@ -19,13 +19,13 @@ async function call(path) {
 const q = (o) => encodeURIComponent(o == null ? '' : o);
 
 export const get_model = {
-  callPromising: (kind = '1adc', init = null, order = null) =>
-    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}`),
+  callPromising: (kind = '1adc', init = null, order = null, wsource = 'geom') =>
+    call(`/api/model?kind=${kind}&init=${init ?? ''}&order=${q(order)}&w=${wsource}`),
 };
 
 export const get_problem = {
-  callPromising: (kind = '1adc', order = null) =>
-    call(`/api/problem?kind=${kind}&order=${q(order)}`),
+  callPromising: (kind = '1adc', order = null, wsource = 'geom') =>
+    call(`/api/problem?kind=${kind}&order=${q(order)}&w=${wsource}`),
 };
 
 export const random_order = {
@@ -33,13 +33,13 @@ export const random_order = {
 };
 
 export const run_backend = {
-  callPromising: (backend, shots = 1024, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null) =>
-    call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}`),
+  callPromising: (backend, shots = 1024, reps = 3, maxiter = 150, kind = '1adc', init = null, order = null, wsource = 'geom') =>
+    call(`/api/run?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}`),
 };
 
 export const resample_ideal = {
-  callPromising: (shots = 1024, seed = null, kind = '1adc', init = null, order = null) =>
-    call(`/api/resample?shots=${shots}&kind=${kind}&order=${q(order)}`),
+  callPromising: (shots = 1024, seed = null, kind = '1adc', init = null, order = null, wsource = 'geom') =>
+    call(`/api/resample?shots=${shots}&kind=${kind}&order=${q(order)}&w=${wsource}`),
 };
 
 export const REPS = 3;

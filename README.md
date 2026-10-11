@@ -15,8 +15,13 @@ Quantum **layer assignment** (L1/L4) for an **ADC–FPGA** PCB, running on
    with a cost breakdown, a possible-configurations histogram and a coupling matrix, plus a
    per-iteration solution evolution.
 
-Verified on the example model: best solution = `001010010`, cost **7.049177** (equal to the
-exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
+The coupling weights `W` can come from either the **geometric heuristic**
+(`modelo.geometric_weights`) or the **COMSOL 6.1 mutual capacitance**
+(`quantum/capacitance.py`, integrating `C'_m(s)` from `quantum/comsol_capacitance.csv`,
+`w_ij = 1/C_ref · ∫ C'_m ds`). Switch between them with **Weights: Geometric / COMSOL**.
+Verified on the example model: best solution = `001010010`, cost **7.049177** (geometric,
+equal to the exact optimum) / **3.1837** (COMSOL). Layers: `L1: D0,D1,D3,D5,D6,CLK` ·
+`L4: D2,D4,D7`.
 
 ## UI (English)
 
@@ -24,6 +29,9 @@ exact optimum). Layers: `L1: D0,D1,D3,D5,D6,CLK` · `L4: D2,D4,D7`.
 - **PCB:** 3D stackup / 2D plan (`BEFORE` = all lines on L1, `AFTER` = QAOA solution).
 - **Solution evolution:** one mini-PCB per iteration (best-so-far).
 - **Problem tabs:** switch between **1 ADC (9 qubits)** and **2 ADC (18 qubits)**.
+- **Weights:** switch between the **Geometric** heuristic and the **COMSOL 6.1** mutual
+  capacitance (quasi-electrostatic proxy) — same QAOA, so you can compare how the layer
+  assignment changes when the weights go from a geometric heuristic to an electrostatic estimate.
 - **Connections:** edit the **ADC→FPGA order** (comma-separated net names, e.g.
   `D2,D4,D0,D1,D3,D5,D7,D6,CLK`). It rebuilds conflicts/weights and redraws. An order whose
   conflict graph is not 2-colorable falls back to the default (shown in the UI). (For 18 qubits
@@ -63,9 +71,15 @@ quantum/
   qaoa.py             # reference QAOA: moved from main.py (QAOAAnsatz + Statevector)
   fastqaoa.py         # fast exact NumPy QAOA (used by the pipeline)
   pipeline.py         # model + QAOA -> the engine's data contract
+  capacitance.py      # COMSOL-calibrated capacitive weights W_ij (optional weight source)
+  comsol_capacitance.csv  # COMSOL 6.1 C'_m calibration (11 gaps, 0.2–4 mm)
   pcb.py              # MOCK model (demo / fallback)
 requirements.txt      # Python deps (Qiskit)
 ```
+
+The COMSOL curve, its log-log interpolation / power-law tail and the `W_geometric` vs
+`W_COMSOL` comparison (plus a `λ_v` sweep) are validated in
+`notebooks/quiettrace_experiments.ipynb` (section 9).
 
 `main.py` was moved to `quantum/qaoa.py` (kept for auditing). The pipeline uses
 `quantum/fastqaoa.py` because `QAOAAnsatz + Statevector` is ~1000× slower and not viable in a

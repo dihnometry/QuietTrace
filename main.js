@@ -17,12 +17,13 @@ const clamp = (v, lo, hi, dflt) => {
 };
 
 let currentKind = '1adc';
+let currentW = 'geom';   // weight source: 'geom' | 'comsol'
 let MODEL = null;
 
 async function refreshProblem() {
   setStatus('Updating problem…');
   try {
-    const p = (await pipeline.get_problem.callPromising(currentKind, currentOrder())).toJs();
+    const p = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW)).toJs();
     p.status = 'idle';
     render(p);   // BEFORE + non-QAOA now; AFTER/QAOA show "press ▶ Run"
     setStatus('Settings changed — press ▶ Run to run QAOA.');
@@ -78,18 +79,18 @@ function reportOrder() {
 
 async function runPipeline() {
   setStatus('Building problem…');
-  const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder())).toJs();
+  const problem = (await pipeline.get_problem.callPromising(currentKind, currentOrder(), currentW)).toJs();
   problem.status = 'running';
   render(problem);   // fast: BEFORE + non-QAOA charts; AFTER & QAOA = Running
   setStatus('Running QAOA… this may take a few seconds (18 qubits is slower).');
 
-  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder())).toJs();
+  const model = (await pipeline.get_model.callPromising(currentKind, null, currentOrder(), currentW)).toJs();
 
   if (hasBackend) {
     setStatus('Optimized locally. Sending 1 QAOA circuit to the selected backend…');
     try {
       const q = (await pipeline.run_backend.callPromising(
-        backend, 1024, 3, 150, currentKind, null, currentOrder())).toJs();
+        backend, 1024, 3, 150, currentKind, null, currentOrder(), currentW)).toJs();
       const over = q.derived;
       model.ideal_distribution = model.distribution;
       model.distribution = over.distribution;
@@ -131,6 +132,16 @@ problemTabs.forEach((b) => {
     problemTabs.forEach((x) => x.classList.toggle('active', x === b));
     const el = orderEl();
     if (el) el.value = '';   // new problem -> default order
+    scheduleProblem(true);
+  };
+});
+
+const wTabs = Array.from(document.querySelectorAll('.w-tab'));
+wTabs.forEach((b) => {
+  b.onclick = () => {
+    if (b.dataset.w === currentW) return;
+    currentW = b.dataset.w;
+    wTabs.forEach((x) => x.classList.toggle('active', x === b));
     scheduleProblem(true);
   };
 });
@@ -213,7 +224,7 @@ async function openConnections() {
       order = parseOrderList(currentOrder(), nets) || MODEL.out_order || nets.slice();
     } else {
       setStatus('Loading problem…');
-      const p = (await pipeline.get_problem.callPromising(currentKind, null)).toJs();
+      const p = (await pipeline.get_problem.callPromising(currentKind, null, currentW)).toJs();
       nets = p.nets.slice();
       order = parseOrderList(currentOrder(), nets) || p.out_order || nets.slice();
     }
@@ -273,5 +284,6 @@ function applyConnections() {
 
 (async () => {
   problemTabs.forEach((x) => x.classList.toggle('active', x.dataset.problem === currentKind));
+  wTabs.forEach((x) => x.classList.toggle('active', x.dataset.w === currentW));
   setStatus('Choose the problem and connections, then press ▶ Run.');
 })();
