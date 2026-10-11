@@ -191,16 +191,55 @@ async function runPipeline() {
 // --- controls ---------------------------------------------------------------
 
 const problemTabs = Array.from(document.querySelectorAll('.problem-tab'));
+
+// Instancias experimentales: exigen confirmacion (la entrega es 1 ADC o 2 ADC).
+const EXPERIMENTAL_KINDS = new Set(['syn9', 'syn18', 'synv', '25']);
+const EXP_NAMES = {
+  syn9: '9 groups · 18 nets', syn18: '18 groups · 36 nets',
+  synv: '18 groups · varied', '25': '25 nets · 25 qubits',
+};
+
+function selectProblem(kind, btn) {
+  currentKind = kind;
+  problemTabs.forEach((x) => x.classList.toggle('active', x === btn));
+  const el = orderEl();
+  if (el) el.value = '';   // new problem -> default order
+  applyPreset(currentKind);  // recommended (p, conflict weight) for this problem
+  updateModelTabs();         // Reduced-only instances disable the Full tab
+  scheduleProblem(true);
+}
+
+function confirmExperimental(kind, onOk) {
+  const modal = document.getElementById('exp-modal');
+  if (!modal) { onOk(); return; }
+  const txt = document.getElementById('exp-text');
+  if (txt) {
+    txt.innerHTML = `<strong>${EXP_NAMES[kind] || kind}</strong> is an `
+      + `<strong>experimental</strong> instance. It is <strong>not</strong> meant to be run for the `
+      + `hackathon evaluation — the submission runs <strong>1 ADC</strong> or <strong>2 ADC</strong>. `
+      + `Continue anyway?`;
+  }
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  const close = () => { modal.hidden = true; document.body.classList.remove('modal-open'); };
+  const cont = document.getElementById('exp-continue');
+  const cancel = document.getElementById('exp-cancel');
+  const x = document.getElementById('exp-close');
+  if (cont) cont.onclick = () => { close(); onOk(); };
+  if (cancel) cancel.onclick = close;
+  if (x) x.onclick = close;
+  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+}
+
 problemTabs.forEach((b) => {
   b.onclick = () => {
-    if (b.dataset.problem === currentKind) return;
-    currentKind = b.dataset.problem;
-    problemTabs.forEach((x) => x.classList.toggle('active', x === b));
-    const el = orderEl();
-    if (el) el.value = '';   // new problem -> default order
-    applyPreset(currentKind);  // recommended (p, conflict weight) for this problem
-    updateModelTabs();         // Reduced-only instances disable the Full tab
-    scheduleProblem(true);
+    const kind = b.dataset.problem;
+    if (kind === currentKind) return;
+    if (EXPERIMENTAL_KINDS.has(kind)) {
+      confirmExperimental(kind, () => selectProblem(kind, b));
+      return;
+    }
+    selectProblem(kind, b);
   };
 });
 

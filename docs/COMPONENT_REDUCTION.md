@@ -197,5 +197,8 @@ sistema `prefers-reduced-motion`, que sí las desactiva.
 - **Público (Qollab):** interruptor `Model: Full/Reduced`, tarjeta *Component reduction*,
   instancias 1 ADC, 2 ADC, `syn9`, `syn18` y `synv`. Las de 36/54 pistas (`syn18`, `synv`) son
   **Reduced-only**: la pestaña *Full* se desactiva (sería 2^36/2^54, no simulable).
+- **Instancias experimentales** (`25`, `syn9`, `syn18`, `synv`): piden **confirmación** antes de
+  seleccionarse — *"experimental; no para la evaluación de la hackathon (la entrega corre 1 ADC o
+  2 ADC)"*. La evaluación se hace con **1 ADC** o **2 ADC**.
 - **Dev-only:** instancia `25` y el tooling en `dev/`.
 - Documento de diseño: este archivo (`docs/` no se sube a Qollab).

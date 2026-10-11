@@ -436,6 +436,9 @@ body.modal-open { overflow: hidden; }
   padding: 1px 7px; vertical-align: middle; white-space: nowrap;
 }
 
+/* modal de confirmacion de instancia experimental */
+.exp-box { width: min(92vw, 560px); height: auto; }
+
 /* boton Run */
 .run-btn {
   margin-left: auto;
