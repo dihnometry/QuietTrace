@@ -659,6 +659,21 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
 
     measured_energy = round(float(np.sum(probs * rcost)), 6)
 
+    # benchmark clasico (sobre el problema completo) + fila del QAOA reducido
+    bench = _classical_benchmark(prob)
+    _exact = bench["exact"]
+    _gp = (None if (_exact is None or abs(_exact) < 1e-12)
+           else round(float(100.0 * (best["cost"] - _exact) / abs(_exact)), 4))
+    bench["methods"].append({
+        "id": "qaoa", "name": f"QAOA reduced ({k} qubits)",
+        "best": best["cost"], "median": best["cost"], "worst": best["cost"],
+        "state": "".join(str(int(v)) for v in best_x),
+        "evals": len(hist), "time_ms": None, "time_opt_ms": None, "time_exec_ms": None,
+        "success": (None if _exact is None else (1.0 if abs(best["cost"] - _exact) < 1e-8 else 0.0)),
+        "gap": (None if _exact is None else round(float(best["cost"] - _exact), 6)),
+        "gap_pct": _gp, "gap_pct_median": _gp, "gap_pct_worst": _gp,
+    })
+
     return {
         "source": "qaoa",
         "meta": {"n_nets": n, "num_qubits": k, "num_parameters": qa["num_parameters"],
@@ -673,6 +688,7 @@ def _reduced_model(kind, init_deg, order_str, wsource, cmult, reps):
                         "after_layers": _layer_members(best_x, nets)},
         "costs": {"before": before, "after": after},
         "exact": {"cost": round(exact_cost, 6)},
+        "benchmark": bench,
         "convergence": {"x": list(range(len(hist))), "energy": [round(v, 4) for v in hist]},
         "distribution": dist, "distribution_source": "reduced",
         "success_ideal": success_ideal,
